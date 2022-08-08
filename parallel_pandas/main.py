@@ -8,14 +8,16 @@ from .core import parallelize_groupby_apply
 class ParallelPandas:
     @staticmethod
     def initialize(n_cpu=None, disable_pr_bar=False, error_behavior='raise', set_error_value=None, initialize=None,
-                   initargs=(), process_timeout=None):
+                   initargs=(), process_timeout=None, show_vmem=False):
         # add parallel methods to Series
         pd.Series.parallel_apply = parallelize_apply(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
-                                                     set_error_value=set_error_value, error_behavior=error_behavior)
+                                                     set_error_value=set_error_value, error_behavior=error_behavior,
+                                                     show_vmem=show_vmem)
 
         # add parallel methods to DataFrame
         pd.DataFrame.parallel_apply = parallelize_apply(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
-                                                        set_error_value=set_error_value, error_behavior=error_behavior)
+                                                        set_error_value=set_error_value, error_behavior=error_behavior,
+                                                        show_vmem=show_vmem)
         pd.DataFrame.split_apply = parallelize_split(n_cpu=n_cpu, disable_progress_bar=disable_pr_bar,
                                                      set_error_value=set_error_value, error_behavior=error_behavior)
 

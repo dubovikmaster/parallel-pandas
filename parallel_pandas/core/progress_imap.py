@@ -10,6 +10,9 @@ from tqdm.auto import tqdm
 
 from .tools import _wrapped_func
 
+from psutil import virtual_memory
+from psutil._common import bytes2human
+
 
 class ProgressBar(tqdm):
 
@@ -21,6 +24,18 @@ class ProgressBar(tqdm):
         if hasattr(self, 'disp'):
             if self.total and self.n < self.total:
                 self.disp(bar_style='warning')
+
+
+class MemoryProgressBar(tqdm):
+
+    def refresh(self, **kwargs):
+        super().refresh(**kwargs)
+        if 70 <= self.n < 90:
+            self.colour = 'orange'
+        elif self.n >= 90:
+            self.colour = 'red'
+        else:
+            self.colour = 'green'
 
 
 class ProgressStatus:
@@ -54,15 +69,29 @@ def progress_udf_wrapper(dill_func, workers_queue, total):
     return wrapped_udf
 
 
-def _process_status(bar_size, disable, q):
-    bar = ProgressBar(total=bar_size, disable=disable, desc='DONE')
+def _process_status(bar_size, disable, show_vmem, q):
+    bar = ProgressBar(total=bar_size, disable=disable, desc='DONE', leave=False)
+    vmem = virtual_memory()
+    if show_vmem:
+        vmem_pbar = MemoryProgressBar(range(100),
+                                      bar_format="{desc}: {percentage:.1f}%|{bar}|  " + bytes2human(vmem.total),
+                                      initial=vmem.percent, colour='green', position=1, desc='VMEM USAGE', leave=False,
+                                      disable=disable,
+                                      )
+        vmem_pbar.refresh()
     while True:
         flag, upd_value = q.get()
         if not flag:
             bar.close()
+            if show_vmem:
+                vmem_pbar.close()
             break
-
         bar.update(upd_value)
+        if show_vmem:
+            if time.time() - vmem_pbar.last_print_t >= 1:
+                vmem = virtual_memory()
+                vmem_pbar.update(vmem.percent - vmem_pbar.n)
+                vmem_pbar.refresh()
 
 
 def _update_error_bar(bar_dict, bar_parameters):
@@ -88,11 +117,11 @@ def _error_behavior(error_handling, msgs, result, set_error_value, q):
             'Invalid error_handling value specified. Must be one of the values: "raise", "ignore", "coerce"')
 
 
-def _do_parallel(func, tasks, initializer, initargs, n_cpu, total, disable, error_behavior, set_error_value,
+def _do_parallel(func, tasks, initializer, initargs, n_cpu, total, disable, error_behavior, set_error_value, show_vmem,
                  q):
     if not n_cpu:
         n_cpu = mp.cpu_count()
-    thread_ = Thread(target=_process_status, args=(total, disable, q))
+    thread_ = Thread(target=_process_status, args=(total, disable, show_vmem, q))
     thread_.start()
     bar_parameters = dict(total=total, disable=disable, position=1, desc='ERROR', colour='red')
     error_bar = {}
@@ -115,9 +144,10 @@ def _do_parallel(func, tasks, initializer, initargs, n_cpu, total, disable, erro
 
 
 def progress_imap(func, tasks, q, initializer=None, initargs=(), n_cpu=None, total=None, disable=False,
-                  process_timeout=None, error_behavior='raise', set_error_value=None,
+                  process_timeout=None, error_behavior='raise', set_error_value=None, show_vmem=False,
                   ):
     if process_timeout:
         func = partial(_wrapped_func, func, process_timeout, True)
-    result = _do_parallel(func, tasks, initializer, initargs, n_cpu, total, disable, error_behavior, set_error_value, q)
+    result = _do_parallel(func, tasks, initializer, initargs, n_cpu, total, disable, error_behavior, set_error_value,
+                          show_vmem, q)
     return result

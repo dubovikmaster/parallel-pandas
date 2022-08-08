@@ -20,7 +20,7 @@ def _get_split_size(n_cpu):
     return n_cpu * 4
 
 
-def parallelize_apply(n_cpu=None, disable_pr_bar=False, error_behavior='raise', set_error_value=None):
+def parallelize_apply(n_cpu=None, disable_pr_bar=False, error_behavior='raise', set_error_value=None, show_vmem=False):
     def parallel_apply(data, func, axis=0, raw=False, result_type=None, args=(), **kwargs):
         workers_queue = Manager().Queue()
         split_size = _get_split_size(n_cpu)
@@ -29,7 +29,7 @@ def parallelize_apply(n_cpu=None, disable_pr_bar=False, error_behavior='raise', 
         result = progress_imap(partial(_do_apply, axis=axis, raw=raw, result_type=result_type, dill_func=dill_func,
                                        workers_queue=workers_queue, args=args, kwargs=kwargs),
                                tasks, workers_queue, n_cpu=n_cpu, total=data.shape[1 - axis], disable=disable_pr_bar,
-                               set_error_value=set_error_value, error_behavior=error_behavior)
+                               set_error_value=set_error_value, error_behavior=error_behavior, show_vmem=show_vmem)
         concat_axis = 0
         if result:
             if isinstance(result[0], pd.DataFrame):
