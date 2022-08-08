@@ -70,12 +70,12 @@ def progress_udf_wrapper(dill_func, workers_queue, total):
 
 
 def _process_status(bar_size, disable, show_vmem, q):
-    bar = ProgressBar(total=bar_size, disable=disable, desc='DONE', leave=False)
+    bar = ProgressBar(total=bar_size, disable=disable, desc='DONE')
     vmem = virtual_memory()
     if show_vmem:
         vmem_pbar = MemoryProgressBar(range(100),
                                       bar_format="{desc}: {percentage:.1f}%|{bar}|  " + bytes2human(vmem.total),
-                                      initial=vmem.percent, colour='green', position=1, desc='VMEM USAGE', leave=False,
+                                      initial=vmem.percent, colour='green', position=1, desc='VMEM USAGE',
                                       disable=disable,
                                       )
         vmem_pbar.refresh()
