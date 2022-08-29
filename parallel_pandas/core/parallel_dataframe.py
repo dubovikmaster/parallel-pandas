@@ -38,7 +38,7 @@ def parallelize_apply(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_f
         result = progress_imap(partial(_do_apply, axis=axis, raw=raw, result_type=result_type, dill_func=dill_func,
                                        workers_queue=workers_queue, args=args, kwargs=kwargs),
                                tasks, workers_queue, n_cpu=n_cpu, total=data.shape[1 - axis], disable=disable_pr_bar,
-                               show_vmem=show_vmem, executor=executor, desc='APPLY')
+                               show_vmem=show_vmem, executor=executor, desc=func.__name__.upper())
         concat_axis = 0
         if result:
             if isinstance(result[0], pd.DataFrame):
