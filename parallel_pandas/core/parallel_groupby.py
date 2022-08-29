@@ -9,7 +9,8 @@ from .progress_imap import progress_udf_wrapper
 
 
 def _do_group_apply(data, dill_func, workers_queue, args, kwargs):
-    result = progress_udf_wrapper(dill_func, workers_queue, 1)(data[1], *args, **kwargs)
+    func = dill.loads(dill_func)
+    result = progress_udf_wrapper(func, workers_queue, 1)(data[1], *args, **kwargs)
     return result, data[1].axes, 0
 
 
@@ -31,7 +32,9 @@ def parallelize_groupby_apply(n_cpu=None, disable_pr_bar=False):
         dill_func = dill.dumps(func)
         result = progress_imap(
             partial(_do_group_apply, dill_func=dill_func, workers_queue=workers_queue, args=args, kwargs=kwargs),
-            iterator, workers_queue, total=gr_count, n_cpu=n_cpu, disable=disable_pr_bar, error_behavior='raise')
+            iterator, workers_queue, total=gr_count, n_cpu=n_cpu, disable=disable_pr_bar, error_behaviour='raise',
+            executor='processes'
+        )
         result, mutated = _prepare_result(result)
 
         # due to a bug in the get_iterator method of the Basegrouper class

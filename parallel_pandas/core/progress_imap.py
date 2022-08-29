@@ -5,14 +5,13 @@ from itertools import count
 import multiprocessing as mp
 from threading import Thread
 
-import dill
 from tqdm.auto import tqdm
 
 from .tools import _wrapped_func
 
 from psutil import virtual_memory
 from psutil._common import bytes2human
-
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
 class ProgressBar(tqdm):
 
@@ -45,12 +44,12 @@ class ProgressStatus:
         self.last_update_val = 0
 
 
-def progress_udf_wrapper(dill_func, workers_queue, total):
+def progress_udf_wrapper(func, workers_queue, total):
     state = ProgressStatus()
-    func = dill.loads(dill_func)
     cnt = count(1)
 
     def wrapped_udf(*args, **kwargs):
+        result = func(*args, **kwargs)
         updated = next(cnt)
         if updated == state.next_update:
             time_now = time.monotonic()
@@ -61,10 +60,10 @@ def progress_udf_wrapper(dill_func, workers_queue, total):
             state.next_update += max(int((delta_i / delta_t) * .25), 1)
             state.last_update_val = updated
             state.last_update_t = time_now
-            workers_queue.put((1, delta_i))
+            workers_queue.put_nowait((1, delta_i))
         elif updated == total:
-            workers_queue.put((1, updated - state.last_update_val))
-        return func(*args, **kwargs)
+            workers_queue.put_nowait((1, updated - state.last_update_val))
+        return result
 
     return wrapped_udf
 
@@ -85,7 +84,7 @@ def _process_status(bar_size, disable, show_vmem, q):
             bar.close()
             if show_vmem:
                 vmem_pbar.close()
-            break
+            return
         bar.update(upd_value)
         if show_vmem:
             if time.time() - vmem_pbar.last_print_t >= 1:
@@ -102,9 +101,9 @@ def _update_error_bar(bar_dict, bar_parameters):
         bar_dict['bar'].update()
 
 
-def _error_behavior(error_handling, msgs, result, set_error_value, q):
+def _error_behaviour(error_handling, msgs, result, set_error_value, q):
     if error_handling == 'raise':
-        q.put(None)
+        q.put((None, None))
         raise
     elif error_handling == 'ignore':
         pass
@@ -117,15 +116,21 @@ def _error_behavior(error_handling, msgs, result, set_error_value, q):
             'Invalid error_handling value specified. Must be one of the values: "raise", "ignore", "coerce"')
 
 
-def _do_parallel(func, tasks, initializer, initargs, n_cpu, total, disable, error_behavior, set_error_value, show_vmem,
-                 q):
+def _do_parallel(func, tasks, initializer, initargs, n_cpu, total, disable, error_behaviour, set_error_value, show_vmem,
+                 q, executor):
     if not n_cpu:
         n_cpu = mp.cpu_count()
+    if executor not in ['threads', 'processes']:
+        raise ValueError('Invalid executor value specified. Must be one of the values: "threads", "processes"')
     thread_ = Thread(target=_process_status, args=(total, disable, show_vmem, q))
     thread_.start()
     bar_parameters = dict(total=total, disable=disable, position=1, desc='ERROR', colour='red')
     error_bar = {}
-    with mp.Pool(n_cpu, initializer=initializer, initargs=initargs) as p:
+    if executor == 'threads':
+        exc_pool = mp.pool.ThreadPool(n_cpu, initializer=initializer, initargs=initargs)
+    else:
+        exc_pool = mp.Pool(n_cpu, initializer=initializer, initargs=initargs)
+    with exc_pool as p:
         result = list()
         iter_result = p.imap(func, tasks)
         while 1:
@@ -135,7 +140,7 @@ def _do_parallel(func, tasks, initializer, initargs, n_cpu, total, disable, erro
                 break
             except Exception as e:
                 _update_error_bar(error_bar, bar_parameters)
-                _error_behavior(error_behavior, e, result, set_error_value, q)
+                _error_behaviour(error_behaviour, e, result, set_error_value, q)
     if error_bar:
         error_bar['bar'].close()
     q.put((None, None))
@@ -143,11 +148,15 @@ def _do_parallel(func, tasks, initializer, initargs, n_cpu, total, disable, erro
     return result
 
 
-def progress_imap(func, tasks, q, initializer=None, initargs=(), n_cpu=None, total=None, disable=False,
-                  process_timeout=None, error_behavior='raise', set_error_value=None, show_vmem=False,
+def progress_imap(func, tasks, q, executor='threads', initializer=None, initargs=(), n_cpu=None, total=None,
+                  disable=False, process_timeout=None, error_behaviour='raise', set_error_value=None, show_vmem=False,
                   ):
-    if process_timeout:
-        func = partial(_wrapped_func, func, process_timeout, True)
-    result = _do_parallel(func, tasks, initializer, initargs, n_cpu, total, disable, error_behavior, set_error_value,
-                          show_vmem, q)
+    try:
+        if process_timeout:
+            func = partial(_wrapped_func, func, process_timeout, True)
+        result = _do_parallel(func, tasks, initializer, initargs, n_cpu, total, disable, error_behaviour, set_error_value,
+                              show_vmem, q, executor)
+    except Exception:
+        q.put((None, None))
+        raise
     return result

@@ -26,6 +26,7 @@ setup(
         'pandas >= 1.4.0',
         'dill',
         'psutil',
+        'tqdm'
     ],
     platforms='any'
 )

@@ -1,7 +1,13 @@
+from __future__ import annotations
+
 from functools import partial
 from multiprocessing import cpu_count, Manager
 
+import numpy as np
 import pandas as pd
+from pandas._libs import lib
+from pandas.core import nanops
+
 import dill
 
 from .progress_imap import progress_imap
@@ -10,49 +16,544 @@ from .tools import get_split_data
 
 
 def _do_apply(data, dill_func, workers_queue, axis, raw, result_type, args, kwargs):
-    return data.apply(progress_udf_wrapper(dill_func, workers_queue, data.shape[1 - axis]), axis=axis, raw=raw,
+    func = dill.loads(dill_func)
+    return data.apply(progress_udf_wrapper(func, workers_queue, data.shape[1 - axis]), axis=axis, raw=raw,
                       result_type=result_type, args=args, **kwargs)
 
 
-def _get_split_size(n_cpu):
+def _get_split_size(n_cpu, n_partitions):
     if n_cpu is None:
         n_cpu = cpu_count()
-    return n_cpu * 4
+    if n_partitions is None:
+        n_partitions = 4
+    return n_cpu * n_partitions
 
 
-def parallelize_apply(n_cpu=None, disable_pr_bar=False, error_behavior='raise', set_error_value=None, show_vmem=False):
-    def parallel_apply(data, func, axis=0, raw=False, result_type=None, args=(), **kwargs):
+def parallelize_apply(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
+    def parallel_apply(data, func, executor='processes', axis=0, raw=False, result_type=None, args=(), **kwargs):
         workers_queue = Manager().Queue()
-        split_size = _get_split_size(n_cpu)
+        split_size = _get_split_size(n_cpu, split_factor)
         tasks = get_split_data(data, axis, split_size)
         dill_func = dill.dumps(func)
         result = progress_imap(partial(_do_apply, axis=axis, raw=raw, result_type=result_type, dill_func=dill_func,
                                        workers_queue=workers_queue, args=args, kwargs=kwargs),
                                tasks, workers_queue, n_cpu=n_cpu, total=data.shape[1 - axis], disable=disable_pr_bar,
-                               set_error_value=set_error_value, error_behavior=error_behavior, show_vmem=show_vmem)
+                               show_vmem=show_vmem, executor=executor)
         concat_axis = 0
         if result:
             if isinstance(result[0], pd.DataFrame):
                 concat_axis = 1 - axis
-        return pd.concat(result, axis=concat_axis)
+        return pd.concat(result, axis=concat_axis, copy=False)
 
     return parallel_apply
 
 
-def _do_split_apply(data, dill_func, workers_queue, args, kwargs):
-    return progress_udf_wrapper(dill_func, workers_queue, 1)(data, *args, **kwargs)
+def _do_replace(df, workers_queue, **kwargs):
+    def foo():
+        return df.replace(**kwargs)
+
+    return progress_udf_wrapper(foo, workers_queue, 1)()
 
 
-def parallelize_split(n_cpu=None, disable_progress_bar=False, error_behavior='raise', set_error_value=None):
-    def split_apply(data, func, split_size=None, args=(), **kwargs):
+def parallelize_replace(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
+    def parallel_replace(data, to_replace=None, value=lib.no_default, limit=None,
+                         regex: bool = False, method: str | lib.NoDefault = lib.no_default):
         workers_queue = Manager().Queue()
-        if split_size is None:
-            split_size = _get_split_size(n_cpu)
+        split_size = _get_split_size(n_cpu, split_factor)
+        tasks = get_split_data(data, 1, split_size)
+        result = progress_imap(partial(_do_replace, to_replace=to_replace, value=value, limit=limit, regex=regex,
+                                       method=method, workers_queue=workers_queue), tasks, workers_queue,
+                               total=split_size, n_cpu=n_cpu, disable=disable_pr_bar, show_vmem=show_vmem)
+
+        return pd.concat(result, copy=False)
+
+    return parallel_replace
+
+
+def do_applymap(df, workers_queue, dill_func, na_action, kwargs):
+    func = dill.loads(dill_func)
+
+    return df.applymap(progress_udf_wrapper(func, workers_queue, df.size), na_action=na_action, **kwargs)
+
+
+def parallelize_applymap(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
+    def parallel_applymap(data, func, na_action=None, **kwargs):
+        workers_queue = Manager().Queue()
+        split_size = _get_split_size(n_cpu, split_factor)
         tasks = get_split_data(data, 1, split_size)
         dill_func = dill.dumps(func)
-        result = progress_imap(partial(_do_split_apply, dill_func=dill_func, args=args, kwargs=kwargs), tasks,
-                               workers_queue, total=split_size, n_cpu=n_cpu, disable=disable_progress_bar,
-                               set_error_value=set_error_value, error_behavior=error_behavior)
-        return pd.concat(result)
+        result = progress_imap(
+            partial(do_applymap, workers_queue=workers_queue, dill_func=dill_func, na_action=na_action,
+                    kwargs=kwargs), tasks, workers_queue, n_cpu=n_cpu, disable=disable_pr_bar, show_vmem=show_vmem,
+            total=data.size, executor='processes')
+        return pd.concat(result, copy=False)
 
-    return split_apply
+    return parallel_applymap
+
+
+def do_describe(df, workers_queue, percentiles, include, exclude, datetime_is_numeric):
+    if isinstance(df, pd.Series):
+        df = df.to_frame()
+
+    def foo():
+        return df.describe(percentiles=percentiles, include=include, exclude=exclude,
+                           datetime_is_numeric=datetime_is_numeric)
+
+    return progress_udf_wrapper(foo, workers_queue, 1)()
+
+
+def parallelize_describe(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
+    def parallel_describe(data, percentiles=None, include=None, exclude=None,
+                          datetime_is_numeric=False):
+        workers_queue = Manager().Queue()
+        split_size = _get_split_size(n_cpu, split_factor)
+        tasks = get_split_data(data, 0, split_size)
+        result = progress_imap(
+            partial(do_describe, workers_queue=workers_queue, percentiles=percentiles, include=include, exclude=exclude,
+                    datetime_is_numeric=datetime_is_numeric), tasks, workers_queue, n_cpu=n_cpu, disable=disable_pr_bar,
+            show_vmem=show_vmem, total=min(split_size, data.shape[1]))
+        return pd.concat(result, copy=False, axis=1)
+
+    return parallel_describe
+
+
+def parallelize_nunique(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
+    def parallel_nunique(data, executor='threads', axis=0, dropna=True):
+        return parallelize_apply(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar, show_vmem=show_vmem,
+                                 split_factor=split_factor)(data, pd.Series.nunique, executor=executor,
+                                                            axis=axis, dropna=dropna)
+
+    return parallel_nunique
+
+
+def do_mad(df, workers_queue, axis, skipna, level):
+    def foo():
+        return df.mad(axis=axis, skipna=skipna, level=level)
+
+    return progress_udf_wrapper(foo, workers_queue, 1)()
+
+
+def parallelize_mad(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
+    def p_mad(data, axis=0, skipna=True, level=None):
+        workers_queue = Manager().Queue()
+        split_size = _get_split_size(n_cpu, split_factor)
+        tasks = get_split_data(data, axis, split_size)
+        total = min(split_size, data.shape[1 - axis])
+        result = progress_imap(
+            partial(do_mad, workers_queue=workers_queue, axis=axis, skipna=skipna, level=level), tasks, workers_queue,
+            n_cpu=n_cpu, disable=disable_pr_bar, show_vmem=show_vmem, total=total
+        )
+        return pd.concat(result, copy=False)
+
+    return p_mad
+
+
+def do_idxmax(df, workers_queue, axis, skipna):
+    def foo():
+        return df.idxmax(axis=axis, skipna=skipna)
+
+    return progress_udf_wrapper(foo, workers_queue, 1)()
+
+
+def parallelize_idxmax(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
+    def p_idxmax(data, axis=0, skipna=True):
+        workers_queue = Manager().Queue()
+        split_size = _get_split_size(n_cpu, split_factor)
+        tasks = get_split_data(data, axis, split_size)
+        total = min(split_size, data.shape[1 - axis])
+        result = progress_imap(
+            partial(do_idxmax, workers_queue=workers_queue, axis=axis, skipna=skipna), tasks, workers_queue,
+            n_cpu=n_cpu, disable=disable_pr_bar, show_vmem=show_vmem, total=total
+        )
+        return pd.concat(result, copy=False)
+
+    return p_idxmax
+
+
+def do_idxmin(df, workers_queue, axis, skipna):
+    def foo():
+        return df.idxmin(axis=axis, skipna=skipna)
+
+    return progress_udf_wrapper(foo, workers_queue, 1)()
+
+
+def parallelize_idxmin(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
+    def p_idxmin(data, axis=0, skipna=True):
+        workers_queue = Manager().Queue()
+        split_size = _get_split_size(n_cpu, split_factor)
+        tasks = get_split_data(data, axis, split_size)
+        total = min(split_size, data.shape[1 - axis])
+        result = progress_imap(
+            partial(do_idxmin, workers_queue=workers_queue, axis=axis, skipna=skipna), tasks, workers_queue,
+            n_cpu=n_cpu, disable=disable_pr_bar, show_vmem=show_vmem, total=total
+        )
+        return pd.concat(result, copy=False)
+
+    return p_idxmin
+
+
+def do_rank(df, workers_queue, axis, method, numeric_only, na_option, ascending, pct):
+    def foo():
+        return df.rank(axis=axis, method=method, numeric_only=numeric_only, na_option=na_option, ascending=ascending,
+                       pct=pct)
+
+    return progress_udf_wrapper(foo, workers_queue, 1)()
+
+
+def parallelize_rank(n_cpu=None, disable_pr_bar=False, split_factor=1,
+                     show_vmem=False):
+    def p_rank(data, axis=0, method: str = "average", numeric_only=lib.no_default, na_option="keep", ascending=True,
+               pct=False):
+        workers_queue = Manager().Queue()
+        split_size = _get_split_size(n_cpu, split_factor)
+        tasks = get_split_data(data, axis, split_size)
+        total = min(split_size, data.shape[1 - axis])
+        result = progress_imap(
+            partial(do_rank, workers_queue=workers_queue, axis=axis, method=method, numeric_only=numeric_only,
+                    na_option=na_option, ascending=ascending, pct=pct), tasks, workers_queue,
+            n_cpu=n_cpu, disable=disable_pr_bar, show_vmem=show_vmem, total=total
+        )
+        return pd.concat(result, axis=1 - axis, copy=False)
+
+    return p_rank
+
+
+def do_quantile(df, workers_queue, axis, q, numeric_only, interpolation):
+    def foo():
+        return df.quantile(axis=axis, q=q, numeric_only=numeric_only, interpolation=interpolation)
+
+    return progress_udf_wrapper(foo, workers_queue, 1)()
+
+
+def parallelize_quantile(n_cpu=None, disable_pr_bar=False, split_factor=1,
+                         show_vmem=False):
+    def p_quantile(data, axis=0, q=0.5, numeric_only: bool = True, interpolation: str = "linear"):
+        workers_queue = Manager().Queue()
+        split_size = _get_split_size(n_cpu, split_factor)
+        tasks = get_split_data(data, axis, split_size)
+        total = min(split_size, data.shape[1 - axis])
+        result = progress_imap(
+            partial(do_quantile, workers_queue=workers_queue, axis=axis, numeric_only=numeric_only, q=q,
+                    interpolation=interpolation), tasks, workers_queue,
+            n_cpu=n_cpu, disable=disable_pr_bar, show_vmem=show_vmem, total=total
+        )
+        if not lib.is_list_like(q):
+            return pd.concat(result, copy=False)
+        return pd.concat(result, axis=1, copy=False)
+
+    return p_quantile
+
+
+def do_mode(df, workers_queue, axis, numeric_only, dropna):
+    def foo():
+        return df.mode(axis=axis, numeric_only=numeric_only, dropna=dropna)
+
+    return progress_udf_wrapper(foo, workers_queue, 1)()
+
+
+def parallelize_mode(n_cpu=None, disable_pr_bar=False, split_factor=1,
+                     show_vmem=False):
+    def p_mode(data, executor='threads', axis=0, numeric_only: bool = False, dropna=True):
+        workers_queue = Manager().Queue()
+        split_size = _get_split_size(n_cpu, split_factor)
+        tasks = get_split_data(data, axis, split_size)
+        total = min(split_size, data.shape[1 - axis])
+        result = progress_imap(
+            partial(do_mode, workers_queue=workers_queue, axis=axis, numeric_only=numeric_only, dropna=dropna
+                    ), tasks, workers_queue,
+            n_cpu=n_cpu, disable=disable_pr_bar, show_vmem=show_vmem, total=total, executor=executor
+        )
+        return pd.concat(result, axis=1 - axis, copy=False)
+
+    return p_mode
+
+
+def do_pct_change(df, workers_queue, periods, fill_method, limit, freq, kwargs):
+    def foo():
+        return df.pct_change(periods=periods, fill_method=fill_method, limit=limit, freq=freq, **kwargs)
+
+    return progress_udf_wrapper(foo, workers_queue, 1)()
+
+
+def parallelize_pct_change(n_cpu=None, disable_pr_bar=False, split_factor=1,
+                           show_vmem=False):
+    def p_pct_change(data, periods=1, fill_method="pad", limit=None, freq=None, **kwargs):
+        workers_queue = Manager().Queue()
+        axis = kwargs.get('axis', 0)
+        split_size = _get_split_size(n_cpu, split_factor)
+        tasks = get_split_data(data, axis, split_size)
+        total = min(split_size, data.shape[1-axis])
+        result = progress_imap(
+            partial(do_pct_change, workers_queue=workers_queue, periods=periods, fill_method=fill_method, limit=limit,
+                    freq=freq, kwargs=kwargs), tasks, workers_queue, n_cpu=n_cpu, disable=disable_pr_bar,
+            show_vmem=show_vmem, total=total
+        )
+        return pd.concat(result, axis=1-axis, copy=False)
+
+    return p_pct_change
+
+
+class ParallelizeStatFunc:
+    def __init__(self, n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
+        self.n_cpu = n_cpu
+        self.disable_pr_bar = disable_pr_bar
+        self.show_vmem = show_vmem
+        self.split_factor = split_factor
+
+    @staticmethod
+    def get_nanops_arg(name):
+        if name == 'min':
+            return nanops.nanmin
+        if name == 'max':
+            return nanops.nanmax
+        if name == 'mean':
+            return nanops.nanmean
+        if name == 'median':
+            return nanops.nanmedian
+        if name == 'skew':
+            return nanops.nanskew
+        if name == 'kurt':
+            return nanops.nankurt
+
+    def _stat_func(self, df, workers_queue, name, axis, skipna, level, numeric_only, kwargs):
+        def closure():
+            return df._stat_function(name, self.get_nanops_arg(name), axis, skipna, level, numeric_only, **kwargs)
+
+        return progress_udf_wrapper(closure, workers_queue, 1)()
+
+    def _parallel_stat_func(self, data, name, kwargs, axis=0, skipna=True, level=None, numeric_only=None):
+        workers_queue = Manager().Queue()
+        split_size = _get_split_size(self.n_cpu, self.split_factor)
+        tasks = get_split_data(data, axis, split_size)
+        total = min(split_size, data.shape[1 - axis])
+        result = progress_imap(
+            partial(self._stat_func, workers_queue=workers_queue, name=name, axis=axis, skipna=skipna,
+                    level=level, numeric_only=numeric_only, kwargs=kwargs), tasks, workers_queue,
+            total=total, n_cpu=self.n_cpu, disable=self.disable_pr_bar, show_vmem=self.show_vmem)
+        return pd.concat(result, copy=False)
+
+    def do_parallel(self, name):
+        if name == 'min':
+            def p_min(data, axis=0, skipna=True, level=None, numeric_only=None, **kwargs):
+                return self._parallel_stat_func(data, name=name, axis=axis, skipna=skipna,
+                                                level=level, numeric_only=numeric_only, kwargs=kwargs)
+
+            return p_min
+        if name == 'max':
+            def p_max(data, axis=0, skipna=True, level=None, numeric_only=None, **kwargs):
+                return self._parallel_stat_func(data, name=name, axis=axis, skipna=skipna,
+                                                level=level, numeric_only=numeric_only, kwargs=kwargs)
+
+            return p_max
+        if name == 'mean':
+            def p_mean(data, axis=0, skipna=True, level=None, numeric_only=None, **kwargs):
+                return self._parallel_stat_func(data, name=name, axis=axis, skipna=skipna,
+                                                level=level, numeric_only=numeric_only, kwargs=kwargs)
+
+            return p_mean
+        if name == 'median':
+            def p_median(data, axis=0, skipna=True, level=None, numeric_only=None, **kwargs):
+                return self._parallel_stat_func(data, name=name, axis=axis, skipna=skipna,
+                                                level=level, numeric_only=numeric_only, kwargs=kwargs)
+
+            return p_median
+        if name == 'kurt':
+            def p_kurt(data, axis=0, skipna=True, level=None, numeric_only=None, **kwargs):
+                return self._parallel_stat_func(data, name=name, axis=axis, skipna=skipna,
+                                                level=level, numeric_only=numeric_only, kwargs=kwargs)
+
+            return p_kurt
+
+        if name == 'skew':
+            def p_skew(data, axis=0, skipna=True, level=None, numeric_only=None, **kwargs):
+                return self._parallel_stat_func(data, name=name, axis=axis, skipna=skipna,
+                                                level=level, numeric_only=numeric_only, kwargs=kwargs)
+
+            return p_skew
+
+
+class ParallelizeStatFuncDdof:
+    def __init__(self, n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
+        self.n_cpu = n_cpu
+        self.disable_pr_bar = disable_pr_bar
+        self.show_vmem = show_vmem
+        self.split_factor = split_factor
+
+    @staticmethod
+    def get_nanops_arg(name):
+        if name == 'sem':
+            return nanops.nansem
+        if name == 'var':
+            return nanops.nanvar
+        if name == 'std':
+            return nanops.nanstd
+
+    def _stat_func_ddof(self, df, workers_queue, name, axis, skipna, level, ddof, numeric_only, kwargs):
+        def closure():
+            return df._stat_function_ddof(name, self.get_nanops_arg(name), axis, skipna, level, ddof, numeric_only,
+                                          **kwargs)
+
+        return progress_udf_wrapper(closure, workers_queue, 1)()
+
+    def _parallel_stat_func_ddof(self, data, name, kwargs, axis=0, skipna=True, level=None, ddof=1,
+                                 numeric_only=None):
+        workers_queue = Manager().Queue()
+        split_size = _get_split_size(self.n_cpu, self.split_factor)
+        tasks = get_split_data(data, axis, split_size)
+        total = min(split_size, data.shape[1 - axis])
+        result = progress_imap(
+            partial(self._stat_func_ddof, workers_queue=workers_queue, name=name, axis=axis, skipna=skipna,
+                    level=level, ddof=ddof, numeric_only=numeric_only, kwargs=kwargs), tasks, workers_queue,
+            total=total, n_cpu=self.n_cpu, disable=self.disable_pr_bar, show_vmem=self.show_vmem)
+        return pd.concat(result, copy=False)
+
+    def do_parallel(self, name):
+        if name == 'var':
+            def p_var(data, axis=0, skipna=True, level=None, ddof=1, numeric_only=None, **kwargs):
+                return self._parallel_stat_func_ddof(data, name=name, axis=axis,
+                                                     skipna=skipna, level=level, ddof=ddof, numeric_only=numeric_only,
+                                                     kwargs=kwargs)
+
+            return p_var
+        if name == 'std':
+            def p_std(data, axis=0, skipna=True, level=None, ddof=1, numeric_only=None, **kwargs):
+                return self._parallel_stat_func_ddof(data, name=name, axis=axis,
+                                                     skipna=skipna, level=level, ddof=ddof, numeric_only=numeric_only,
+                                                     kwargs=kwargs)
+
+            return p_std
+        if name == 'sem':
+            def p_sem(data, axis=0, skipna=True, level=None, ddof=1, numeric_only=None, **kwargs):
+                return self._parallel_stat_func_ddof(data, name=name, axis=axis,
+                                                     skipna=skipna, level=level, ddof=ddof, numeric_only=numeric_only,
+                                                     kwargs=kwargs)
+
+            return p_sem
+
+
+class ParallelizeMinCountStatFunc:
+    def __init__(self, n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
+        self.n_cpu = n_cpu
+        self.disable_pr_bar = disable_pr_bar
+        self.show_vmem = show_vmem
+        self.split_factor = split_factor
+
+    @staticmethod
+    def get_nanops_arg(name):
+        if name == 'sum':
+            return nanops.nansum
+        if name == 'prod':
+            return nanops.nanprod
+
+    def _min_count_stat_func(self, df, workers_queue, name, axis, skipna, level, numeric_only, min_count, kwargs):
+        def closure():
+            return df._min_count_stat_function(name, self.get_nanops_arg(name), axis, skipna, level, numeric_only,
+                                               min_count, **kwargs
+                                               )
+
+        return progress_udf_wrapper(closure, workers_queue, 1)()
+
+    def _parallel_min_count_stat_func(self, data, name, kwargs, axis=0, skipna=True, level=None,
+                                      numeric_only=None, min_count=0):
+        workers_queue = Manager().Queue()
+        split_size = _get_split_size(self.n_cpu, self.split_factor)
+        tasks = get_split_data(data, axis, split_size)
+        total = min(split_size, data.shape[1 - axis])
+        result = progress_imap(
+            partial(self._min_count_stat_func, workers_queue=workers_queue, name=name, axis=axis, skipna=skipna,
+                    level=level, min_count=min_count, numeric_only=numeric_only, kwargs=kwargs), tasks, workers_queue,
+            total=total, n_cpu=self.n_cpu, disable=self.disable_pr_bar, show_vmem=self.show_vmem)
+        return pd.concat(result, copy=False)
+
+    def do_parallel(self, name):
+        if name == 'sum':
+            def p_sum(data, axis=0, skipna=True, level=None, numeric_only=None,
+                      min_count=0, **kwargs):
+                return self._parallel_min_count_stat_func(data, name=name, axis=axis,
+                                                          skipna=skipna, level=level, min_count=min_count,
+                                                          numeric_only=numeric_only, kwargs=kwargs)
+
+            return p_sum
+        if name == 'prod':
+            def p_prod(data, axis=0, skipna=True, level=None, numeric_only=None,
+                       min_count=0, **kwargs):
+                return self._parallel_min_count_stat_func(data, name=name, axis=axis,
+                                                          skipna=skipna, level=level, min_count=min_count,
+                                                          numeric_only=numeric_only, kwargs=kwargs)
+
+            return p_prod
+
+
+class ParallelizeAccumFunc:
+    def __init__(self, n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
+        self.n_cpu = n_cpu
+        self.disable_pr_bar = disable_pr_bar
+        self.show_vmem = show_vmem
+        self.split_factor = split_factor
+
+    @staticmethod
+    def get_func(name):
+        if name == 'cummin':
+            return np.minimum.accumulate
+        if name == 'cummax':
+            return np.maximum.accumulate
+        if name == 'cumsum':
+            return np.cumsum
+        if name == 'cumprod':
+            return np.cumprod
+
+    def _concat_by_columns(self, columns):
+        first = columns[0]
+        for d in columns[1:]:
+            first.update(d)
+        return pd.DataFrame(first)
+
+    def _accum_func(self, df, workers_queue, name, axis, skipna, args, kwargs):
+        def closure():
+            if not axis:
+                return df._accum_func(name, self.get_func(name), axis, skipna, *args, **kwargs).to_dict(orient='series')
+            return df._accum_func(name, self.get_func(name), axis, skipna, *args, **kwargs)
+
+        return progress_udf_wrapper(closure, workers_queue, 1)()
+
+    def _parallel_accum_func(self, data, name, args, kwargs, axis=0, skipna=True):
+        workers_queue = Manager().Queue()
+        split_size = _get_split_size(self.n_cpu, self.split_factor)
+        tasks = get_split_data(data, axis, split_size)
+        total = min(split_size, data.shape[1 - axis])
+        result = progress_imap(
+            partial(self._accum_func, workers_queue=workers_queue, name=name, axis=axis, skipna=skipna,
+                    args=args, kwargs=kwargs), tasks, workers_queue,
+            total=total, n_cpu=self.n_cpu, disable=self.disable_pr_bar, show_vmem=self.show_vmem)
+        if not axis:
+            return self._concat_by_columns(result)
+        return pd.concat(result, axis=1 - axis, copy=False)
+
+    def do_parallel(self, name):
+        if name == 'cumsum':
+            def p_cumsum(data, axis=0, skipna=True, *args, **kwargs):
+                return self._parallel_accum_func(data, name=name, axis=axis,
+                                                 skipna=skipna, args=args, kwargs=kwargs)
+
+            return p_cumsum
+
+        if name == 'cumprod':
+            def p_cumprod(data, axis=0, skipna=True, *args, **kwargs):
+                return self._parallel_accum_func(data, name=name, axis=axis,
+                                                 skipna=skipna, args=args, kwargs=kwargs)
+
+            return p_cumprod
+
+        if name == 'cummin':
+            def p_cummin(data, axis=0, skipna=True, *args, **kwargs):
+                return self._parallel_accum_func(data, name=name, axis=axis,
+                                                 skipna=skipna, args=args, kwargs=kwargs)
+
+            return p_cummin
+
+        if name == 'cummax':
+            def p_cummax(data, axis=0, skipna=True, *args, **kwargs):
+                return self._parallel_accum_func(data, name=name, axis=axis,
+                                                 skipna=skipna, args=args, kwargs=kwargs)
+
+            return p_cummax
