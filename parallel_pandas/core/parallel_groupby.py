@@ -33,7 +33,7 @@ def parallelize_groupby_apply(n_cpu=None, disable_pr_bar=False):
         result = progress_imap(
             partial(_do_group_apply, dill_func=dill_func, workers_queue=workers_queue, args=args, kwargs=kwargs),
             iterator, workers_queue, total=gr_count, n_cpu=n_cpu, disable=disable_pr_bar, error_behaviour='raise',
-            executor='processes'
+            executor='processes', desc='APPLY'
         )
         result, mutated = _prepare_result(result)
 

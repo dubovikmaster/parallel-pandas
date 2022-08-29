@@ -68,8 +68,8 @@ def progress_udf_wrapper(func, workers_queue, total):
     return wrapped_udf
 
 
-def _process_status(bar_size, disable, show_vmem, q):
-    bar = ProgressBar(total=bar_size, disable=disable, desc='DONE')
+def _process_status(bar_size, disable, show_vmem, desc, q):
+    bar = ProgressBar(total=bar_size, disable=disable, desc=desc+' DONE')
     vmem = virtual_memory()
     if show_vmem:
         vmem_pbar = MemoryProgressBar(range(100),
@@ -117,12 +117,12 @@ def _error_behaviour(error_handling, msgs, result, set_error_value, q):
 
 
 def _do_parallel(func, tasks, initializer, initargs, n_cpu, total, disable, error_behaviour, set_error_value, show_vmem,
-                 q, executor):
+                 q, executor, desc):
     if not n_cpu:
         n_cpu = mp.cpu_count()
     if executor not in ['threads', 'processes']:
         raise ValueError('Invalid executor value specified. Must be one of the values: "threads", "processes"')
-    thread_ = Thread(target=_process_status, args=(total, disable, show_vmem, q))
+    thread_ = Thread(target=_process_status, args=(total, disable, show_vmem, desc, q))
     thread_.start()
     bar_parameters = dict(total=total, disable=disable, position=1, desc='ERROR', colour='red')
     error_bar = {}
@@ -150,12 +150,13 @@ def _do_parallel(func, tasks, initializer, initargs, n_cpu, total, disable, erro
 
 def progress_imap(func, tasks, q, executor='threads', initializer=None, initargs=(), n_cpu=None, total=None,
                   disable=False, process_timeout=None, error_behaviour='raise', set_error_value=None, show_vmem=False,
+                  desc='DONE'
                   ):
     try:
         if process_timeout:
             func = partial(_wrapped_func, func, process_timeout, True)
         result = _do_parallel(func, tasks, initializer, initargs, n_cpu, total, disable, error_behaviour, set_error_value,
-                              show_vmem, q, executor)
+                              show_vmem, q, executor, desc)
     except Exception:
         q.put((None, None))
         raise
