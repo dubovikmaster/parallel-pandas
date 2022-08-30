@@ -32,8 +32,8 @@ def parallelize_groupby_apply(n_cpu=None, disable_pr_bar=False):
         dill_func = dill.dumps(func)
         result = progress_imap(
             partial(_do_group_apply, dill_func=dill_func, workers_queue=workers_queue, args=args, kwargs=kwargs),
-            iterator, workers_queue, total=gr_count, n_cpu=n_cpu, disable=disable_pr_bar, error_behaviour='raise',
-            executor=executor, desc=func.__name__.upper()
+            iterator, workers_queue, total=gr_count, n_cpu=n_cpu, disable=disable_pr_bar, executor=executor,
+            desc=func.__name__.upper()
         )
         result, mutated = _prepare_result(result)
 
