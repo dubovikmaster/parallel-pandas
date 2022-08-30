@@ -7,12 +7,16 @@ import numpy as np
 import pandas as pd
 from pandas._libs import lib
 from pandas.core import nanops
+from pandas.util._decorators import doc
 
 import dill
 
 from .progress_imap import progress_imap
 from .progress_imap import progress_udf_wrapper
 from .tools import get_split_data
+
+DOC = 'Parallel analogue of the DataFrame.{func} method\nSee pandas DataFrame docstring for more ' \
+      'information\nhttps://pandas.pydata.org/docs/reference/frame.html '
 
 
 def _do_apply(data, dill_func, workers_queue, axis, raw, result_type, args, kwargs):
@@ -30,6 +34,7 @@ def _get_split_size(n_cpu, split_factor):
 
 
 def parallelize_apply(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
+    @doc(DOC, func='apply')
     def p_apply(data, func, executor='processes', axis=0, raw=False, result_type=None, args=(), **kwargs):
         workers_queue = Manager().Queue()
         split_size = _get_split_size(n_cpu, split_factor)
@@ -56,6 +61,7 @@ def _do_replace(df, workers_queue, **kwargs):
 
 
 def parallelize_replace(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
+    @doc(DOC, func='replace')
     def p_replace(data, to_replace=None, value=lib.no_default, limit=None,
                   regex: bool = False, method: str | lib.NoDefault = lib.no_default):
         workers_queue = Manager().Queue()
@@ -78,6 +84,7 @@ def do_applymap(df, workers_queue, dill_func, na_action, kwargs):
 
 
 def parallelize_applymap(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
+    @doc(DOC, func='applymap')
     def p_applymap(data, func, na_action=None, **kwargs):
         workers_queue = Manager().Queue()
         split_size = _get_split_size(n_cpu, split_factor)
@@ -104,6 +111,7 @@ def do_describe(df, workers_queue, percentiles, include, exclude, datetime_is_nu
 
 
 def parallelize_describe(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
+    @doc(DOC, func='describe')
     def p_describe(data, percentiles=None, include=None, exclude=None,
                    datetime_is_numeric=False):
         workers_queue = Manager().Queue()
@@ -119,6 +127,7 @@ def parallelize_describe(n_cpu=None, disable_pr_bar=False, show_vmem=False, spli
 
 
 def parallelize_nunique(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
+    @doc(DOC, func='nunique')
     def p_nunique(data, executor='threads', axis=0, dropna=True):
         return parallelize_apply(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar, show_vmem=show_vmem,
                                  split_factor=split_factor)(data, pd.Series.nunique, executor=executor,
@@ -135,6 +144,7 @@ def do_mad(df, workers_queue, axis, skipna, level):
 
 
 def parallelize_mad(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
+    @doc(DOC, func='mad')
     def p_mad(data, axis=0, skipna=True, level=None):
         workers_queue = Manager().Queue()
         split_size = _get_split_size(n_cpu, split_factor)
@@ -157,6 +167,7 @@ def do_idxmax(df, workers_queue, axis, skipna):
 
 
 def parallelize_idxmax(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
+    @doc(DOC, func='idxmax')
     def p_idxmax(data, axis=0, skipna=True):
         workers_queue = Manager().Queue()
         split_size = _get_split_size(n_cpu, split_factor)
@@ -179,6 +190,7 @@ def do_idxmin(df, workers_queue, axis, skipna):
 
 
 def parallelize_idxmin(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
+    @doc(DOC, func='idxmin')
     def p_idxmin(data, axis=0, skipna=True):
         workers_queue = Manager().Queue()
         split_size = _get_split_size(n_cpu, split_factor)
@@ -203,6 +215,7 @@ def do_rank(df, workers_queue, axis, method, numeric_only, na_option, ascending,
 
 def parallelize_rank(n_cpu=None, disable_pr_bar=False, split_factor=1,
                      show_vmem=False):
+    @doc(DOC, func='rank')
     def p_rank(data, axis=0, method: str = "average", numeric_only=lib.no_default, na_option="keep", ascending=True,
                pct=False):
         workers_queue = Manager().Queue()
@@ -228,6 +241,7 @@ def do_quantile(df, workers_queue, axis, q, numeric_only, interpolation):
 
 def parallelize_quantile(n_cpu=None, disable_pr_bar=False, split_factor=1,
                          show_vmem=False):
+    @doc(DOC, func='quantile')
     def p_quantile(data, axis=0, q=0.5, numeric_only: bool = True, interpolation: str = "linear"):
         workers_queue = Manager().Queue()
         split_size = _get_split_size(n_cpu, split_factor)
@@ -254,6 +268,7 @@ def do_mode(df, workers_queue, axis, numeric_only, dropna):
 
 def parallelize_mode(n_cpu=None, disable_pr_bar=False, split_factor=1,
                      show_vmem=False):
+    @doc(DOC, func='mode')
     def p_mode(data, executor='threads', axis=0, numeric_only: bool = False, dropna=True):
         workers_queue = Manager().Queue()
         split_size = _get_split_size(n_cpu, split_factor)
@@ -278,6 +293,7 @@ def do_pct_change(df, workers_queue, periods, fill_method, limit, freq, kwargs):
 
 def parallelize_pct_change(n_cpu=None, disable_pr_bar=False, split_factor=1,
                            show_vmem=False):
+    @doc(DOC, func='pct_change')
     def p_pct_change(data, periods=1, fill_method="pad", limit=None, freq=None, **kwargs):
         workers_queue = Manager().Queue()
         axis = kwargs.get('axis', 0)
@@ -335,30 +351,35 @@ class ParallelizeStatFunc:
 
     def do_parallel(self, name):
         if name == 'min':
+            @doc(DOC, func=name)
             def p_min(data, axis=0, skipna=True, level=None, numeric_only=None, **kwargs):
                 return self._parallel_stat_func(data, name=name, axis=axis, skipna=skipna,
                                                 level=level, numeric_only=numeric_only, kwargs=kwargs)
 
             return p_min
         if name == 'max':
+            @doc(DOC, func=name)
             def p_max(data, axis=0, skipna=True, level=None, numeric_only=None, **kwargs):
                 return self._parallel_stat_func(data, name=name, axis=axis, skipna=skipna,
                                                 level=level, numeric_only=numeric_only, kwargs=kwargs)
 
             return p_max
         if name == 'mean':
+            @doc(DOC, func=name)
             def p_mean(data, axis=0, skipna=True, level=None, numeric_only=None, **kwargs):
                 return self._parallel_stat_func(data, name=name, axis=axis, skipna=skipna,
                                                 level=level, numeric_only=numeric_only, kwargs=kwargs)
 
             return p_mean
         if name == 'median':
+            @doc(DOC, func=name)
             def p_median(data, axis=0, skipna=True, level=None, numeric_only=None, **kwargs):
                 return self._parallel_stat_func(data, name=name, axis=axis, skipna=skipna,
                                                 level=level, numeric_only=numeric_only, kwargs=kwargs)
 
             return p_median
         if name == 'kurt':
+            @doc(DOC, func=name)
             def p_kurt(data, axis=0, skipna=True, level=None, numeric_only=None, **kwargs):
                 return self._parallel_stat_func(data, name=name, axis=axis, skipna=skipna,
                                                 level=level, numeric_only=numeric_only, kwargs=kwargs)
@@ -366,6 +387,7 @@ class ParallelizeStatFunc:
             return p_kurt
 
         if name == 'skew':
+            @doc(DOC, func=name)
             def p_skew(data, axis=0, skipna=True, level=None, numeric_only=None, **kwargs):
                 return self._parallel_stat_func(data, name=name, axis=axis, skipna=skipna,
                                                 level=level, numeric_only=numeric_only, kwargs=kwargs)
@@ -410,6 +432,7 @@ class ParallelizeStatFuncDdof:
 
     def do_parallel(self, name):
         if name == 'var':
+            @doc(DOC, func=name)
             def p_var(data, axis=0, skipna=True, level=None, ddof=1, numeric_only=None, **kwargs):
                 return self._parallel_stat_func_ddof(data, name=name, axis=axis,
                                                      skipna=skipna, level=level, ddof=ddof, numeric_only=numeric_only,
@@ -417,6 +440,7 @@ class ParallelizeStatFuncDdof:
 
             return p_var
         if name == 'std':
+            @doc(DOC, func=name)
             def p_std(data, axis=0, skipna=True, level=None, ddof=1, numeric_only=None, **kwargs):
                 return self._parallel_stat_func_ddof(data, name=name, axis=axis,
                                                      skipna=skipna, level=level, ddof=ddof, numeric_only=numeric_only,
@@ -424,6 +448,7 @@ class ParallelizeStatFuncDdof:
 
             return p_std
         if name == 'sem':
+            @doc(DOC, func=name)
             def p_sem(data, axis=0, skipna=True, level=None, ddof=1, numeric_only=None, **kwargs):
                 return self._parallel_stat_func_ddof(data, name=name, axis=axis,
                                                      skipna=skipna, level=level, ddof=ddof, numeric_only=numeric_only,
@@ -468,6 +493,7 @@ class ParallelizeMinCountStatFunc:
 
     def do_parallel(self, name):
         if name == 'sum':
+            @doc(DOC, func=name)
             def p_sum(data, axis=0, skipna=True, level=None, numeric_only=None,
                       min_count=0, **kwargs):
                 return self._parallel_min_count_stat_func(data, name=name, axis=axis,
@@ -476,6 +502,7 @@ class ParallelizeMinCountStatFunc:
 
             return p_sum
         if name == 'prod':
+            @doc(DOC, func=name)
             def p_prod(data, axis=0, skipna=True, level=None, numeric_only=None,
                        min_count=0, **kwargs):
                 return self._parallel_min_count_stat_func(data, name=name, axis=axis,
@@ -532,6 +559,7 @@ class ParallelizeAccumFunc:
 
     def do_parallel(self, name):
         if name == 'cumsum':
+            @doc(DOC, func=name)
             def p_cumsum(data, axis=0, skipna=True, *args, **kwargs):
                 return self._parallel_accum_func(data, name=name, axis=axis,
                                                  skipna=skipna, args=args, kwargs=kwargs)
@@ -539,6 +567,7 @@ class ParallelizeAccumFunc:
             return p_cumsum
 
         if name == 'cumprod':
+            @doc(DOC, func=name)
             def p_cumprod(data, axis=0, skipna=True, *args, **kwargs):
                 return self._parallel_accum_func(data, name=name, axis=axis,
                                                  skipna=skipna, args=args, kwargs=kwargs)
@@ -546,6 +575,7 @@ class ParallelizeAccumFunc:
             return p_cumprod
 
         if name == 'cummin':
+            @doc(DOC, func=name)
             def p_cummin(data, axis=0, skipna=True, *args, **kwargs):
                 return self._parallel_accum_func(data, name=name, axis=axis,
                                                  skipna=skipna, args=args, kwargs=kwargs)
@@ -553,6 +583,7 @@ class ParallelizeAccumFunc:
             return p_cummin
 
         if name == 'cummax':
+            @doc(DOC, func=name)
             def p_cummax(data, axis=0, skipna=True, *args, **kwargs):
                 return self._parallel_accum_func(data, name=name, axis=axis,
                                                  skipna=skipna, args=args, kwargs=kwargs)

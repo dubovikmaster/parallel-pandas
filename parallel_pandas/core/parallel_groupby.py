@@ -3,10 +3,14 @@ from multiprocessing import Manager
 
 from .progress_imap import progress_imap
 from pandas.core.groupby.ops import _is_indexed_like
+from pandas.util._decorators import doc
+
 import dill
 
 from .progress_imap import progress_udf_wrapper
 
+DOC = 'Parallel analogue of the GroupBy.{func} method\nSee pandas GroupBy docstring for more ' \
+      'information\nhttps://pandas.pydata.org/docs/reference/groupby.html'
 
 def _do_group_apply(data, dill_func, workers_queue, args, kwargs):
     func = dill.loads(dill_func)
@@ -25,6 +29,7 @@ def _prepare_result(data):
 
 
 def parallelize_groupby_apply(n_cpu=None, disable_pr_bar=False):
+    @doc(DOC, func='apply')
     def p_apply(data, func, executor='processes', args=(), **kwargs):
         workers_queue = Manager().Queue()
         gr_count = data.ngroups
