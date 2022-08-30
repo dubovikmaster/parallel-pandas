@@ -16,7 +16,7 @@ from .core import ParallelizeMinCountStatFunc
 from .core import ParallelizeAccumFunc
 from .core import parallelize_quantile
 from .core import parallelize_mode
-from .core import parallelize_pct_change
+# from .core import parallelize_pct_change
 
 
 class ParallelPandas:
@@ -28,11 +28,11 @@ class ParallelPandas:
         #                                              show_vmem=show_vmem)
 
         # add parallel methods to DataFrame
-        pd.DataFrame.parallel_apply = parallelize_apply(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar, show_vmem=show_vmem,
-                                                        split_factor=split_factor)
+        pd.DataFrame.p_apply = parallelize_apply(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar, show_vmem=show_vmem,
+                                                 split_factor=split_factor)
 
-        pd.DataFrame.parallel_replace = parallelize_replace(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
-                                                            show_vmem=show_vmem, split_factor=split_factor)
+        pd.DataFrame.p_replace = parallelize_replace(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
+                                                     show_vmem=show_vmem, split_factor=split_factor)
 
         pd.DataFrame.p_min = ParallelizeStatFunc(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
                                                  show_vmem=show_vmem, split_factor=split_factor).do_parallel('min')
@@ -84,15 +84,15 @@ class ParallelPandas:
                                                      show_vmem=show_vmem,
                                                      split_factor=split_factor).do_parallel('cumsum')
 
-        pd.DataFrame.parallel_applymap = parallelize_applymap(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
-                                                              show_vmem=show_vmem)
-        pd.DataFrame.parallel_describe = parallelize_describe(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
-                                                              show_vmem=show_vmem,
-                                                              split_factor=split_factor)
+        pd.DataFrame.p_applymap = parallelize_applymap(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
+                                                       show_vmem=show_vmem)
+        pd.DataFrame.p_describe = parallelize_describe(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
+                                                       show_vmem=show_vmem,
+                                                       split_factor=split_factor)
 
-        pd.DataFrame.parallel_nunique = parallelize_nunique(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
-                                                            show_vmem=show_vmem,
-                                                            split_factor=split_factor)
+        pd.DataFrame.p_nunique = parallelize_nunique(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
+                                                     show_vmem=show_vmem,
+                                                     split_factor=split_factor)
 
         pd.DataFrame.p_mad = parallelize_mad(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar, show_vmem=show_vmem,
                                              split_factor=split_factor)
@@ -112,11 +112,11 @@ class ParallelPandas:
         pd.DataFrame.p_mode = parallelize_mode(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar, show_vmem=show_vmem,
                                                split_factor=split_factor)
 
-        pd.DataFrame.p_pct_change = parallelize_pct_change(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
-                                                           show_vmem=show_vmem, split_factor=split_factor)
+        # pd.DataFrame.p_pct_change = parallelize_pct_change(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
+        #                                                    show_vmem=show_vmem, split_factor=split_factor)
 
         # add parallel methods to DataFrameGroupBy and SeriesGroupBy
-        pd.core.groupby.DataFrameGroupBy.parallel_apply = parallelize_groupby_apply(n_cpu=n_cpu,
-                                                                                    disable_pr_bar=disable_pr_bar)
-        pd.core.groupby.SeriesGroupBy.parallel_apply = parallelize_groupby_apply(n_cpu=n_cpu,
-                                                                                 disable_pr_bar=disable_pr_bar)
+        pd.core.groupby.DataFrameGroupBy.p_apply = parallelize_groupby_apply(n_cpu=n_cpu,
+                                                                             disable_pr_bar=disable_pr_bar)
+        pd.core.groupby.SeriesGroupBy.p_apply = parallelize_groupby_apply(n_cpu=n_cpu,
+                                                                          disable_pr_bar=disable_pr_bar)

@@ -21,16 +21,16 @@ def _do_apply(data, dill_func, workers_queue, axis, raw, result_type, args, kwar
                       result_type=result_type, args=args, **kwargs)
 
 
-def _get_split_size(n_cpu, n_partitions):
+def _get_split_size(n_cpu, split_factor):
     if n_cpu is None:
         n_cpu = cpu_count()
-    if n_partitions is None:
-        n_partitions = 4
-    return n_cpu * n_partitions
+    if split_factor is None:
+        split_factor = 4
+    return n_cpu * split_factor
 
 
 def parallelize_apply(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
-    def parallel_apply(data, func, executor='processes', axis=0, raw=False, result_type=None, args=(), **kwargs):
+    def p_apply(data, func, executor='processes', axis=0, raw=False, result_type=None, args=(), **kwargs):
         workers_queue = Manager().Queue()
         split_size = _get_split_size(n_cpu, split_factor)
         tasks = get_split_data(data, axis, split_size)
@@ -45,7 +45,7 @@ def parallelize_apply(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_f
                 concat_axis = 1 - axis
         return pd.concat(result, axis=concat_axis, copy=False)
 
-    return parallel_apply
+    return p_apply
 
 
 def _do_replace(df, workers_queue, **kwargs):
@@ -56,8 +56,8 @@ def _do_replace(df, workers_queue, **kwargs):
 
 
 def parallelize_replace(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
-    def parallel_replace(data, to_replace=None, value=lib.no_default, limit=None,
-                         regex: bool = False, method: str | lib.NoDefault = lib.no_default):
+    def p_replace(data, to_replace=None, value=lib.no_default, limit=None,
+                  regex: bool = False, method: str | lib.NoDefault = lib.no_default):
         workers_queue = Manager().Queue()
         split_size = _get_split_size(n_cpu, split_factor)
         tasks = get_split_data(data, 1, split_size)
@@ -68,7 +68,7 @@ def parallelize_replace(n_cpu=None, disable_pr_bar=False, show_vmem=False, split
 
         return pd.concat(result, copy=False)
 
-    return parallel_replace
+    return p_replace
 
 
 def do_applymap(df, workers_queue, dill_func, na_action, kwargs):
@@ -78,7 +78,7 @@ def do_applymap(df, workers_queue, dill_func, na_action, kwargs):
 
 
 def parallelize_applymap(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
-    def parallel_applymap(data, func, na_action=None, **kwargs):
+    def p_applymap(data, func, na_action=None, **kwargs):
         workers_queue = Manager().Queue()
         split_size = _get_split_size(n_cpu, split_factor)
         tasks = get_split_data(data, 1, split_size)
@@ -89,7 +89,7 @@ def parallelize_applymap(n_cpu=None, disable_pr_bar=False, show_vmem=False, spli
             total=data.size, executor='processes', desc='APPLYMAP')
         return pd.concat(result, copy=False)
 
-    return parallel_applymap
+    return p_applymap
 
 
 def do_describe(df, workers_queue, percentiles, include, exclude, datetime_is_numeric):
@@ -104,8 +104,8 @@ def do_describe(df, workers_queue, percentiles, include, exclude, datetime_is_nu
 
 
 def parallelize_describe(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
-    def parallel_describe(data, percentiles=None, include=None, exclude=None,
-                          datetime_is_numeric=False):
+    def p_describe(data, percentiles=None, include=None, exclude=None,
+                   datetime_is_numeric=False):
         workers_queue = Manager().Queue()
         split_size = _get_split_size(n_cpu, split_factor)
         tasks = get_split_data(data, 0, split_size)
@@ -115,16 +115,16 @@ def parallelize_describe(n_cpu=None, disable_pr_bar=False, show_vmem=False, spli
             show_vmem=show_vmem, total=min(split_size, data.shape[1]), desc='DESCRIBE')
         return pd.concat(result, copy=False, axis=1)
 
-    return parallel_describe
+    return p_describe
 
 
 def parallelize_nunique(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
-    def parallel_nunique(data, executor='threads', axis=0, dropna=True):
+    def p_nunique(data, executor='threads', axis=0, dropna=True):
         return parallelize_apply(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar, show_vmem=show_vmem,
                                  split_factor=split_factor)(data, pd.Series.nunique, executor=executor,
                                                             axis=axis, dropna=dropna)
 
-    return parallel_nunique
+    return p_nunique
 
 
 def do_mad(df, workers_queue, axis, skipna, level):
@@ -283,13 +283,13 @@ def parallelize_pct_change(n_cpu=None, disable_pr_bar=False, split_factor=1,
         axis = kwargs.get('axis', 0)
         split_size = _get_split_size(n_cpu, split_factor)
         tasks = get_split_data(data, axis, split_size)
-        total = min(split_size, data.shape[1-axis])
+        total = min(split_size, data.shape[1 - axis])
         result = progress_imap(
             partial(do_pct_change, workers_queue=workers_queue, periods=periods, fill_method=fill_method, limit=limit,
                     freq=freq, kwargs=kwargs), tasks, workers_queue, n_cpu=n_cpu, disable=disable_pr_bar,
             show_vmem=show_vmem, total=total, desc='PCT_CHANGE'
         )
-        return pd.concat(result, axis=1-axis, copy=False)
+        return pd.concat(result, axis=1 - axis, copy=False)
 
     return p_pct_change
 

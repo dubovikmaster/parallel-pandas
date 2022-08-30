@@ -11,7 +11,7 @@ from .tools import _wrapped_func
 
 from psutil import virtual_memory
 from psutil._common import bytes2human
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+
 
 class ProgressBar(tqdm):
 
@@ -69,7 +69,7 @@ def progress_udf_wrapper(func, workers_queue, total):
 
 
 def _process_status(bar_size, disable, show_vmem, desc, q):
-    bar = ProgressBar(total=bar_size, disable=disable, desc=desc+' DONE')
+    bar = ProgressBar(total=bar_size, disable=disable, desc=desc + ' DONE')
     vmem = virtual_memory()
     if show_vmem:
         vmem_pbar = MemoryProgressBar(range(100),
@@ -93,39 +93,12 @@ def _process_status(bar_size, disable, show_vmem, desc, q):
                 vmem_pbar.refresh()
 
 
-def _update_error_bar(bar_dict, bar_parameters):
-    try:
-        bar_dict['bar'].update()
-    except KeyError:
-        bar_dict['bar'] = ProgressBar(**bar_parameters)
-        bar_dict['bar'].update()
-
-
-def _error_behaviour(error_handling, msgs, result, set_error_value, q):
-    if error_handling == 'raise':
-        q.put((None, None))
-        raise
-    elif error_handling == 'ignore':
-        pass
-    elif error_handling == 'coerce':
-        if set_error_value is None:
-            set_error_value = msgs
-        result.append(set_error_value)
-    else:
-        raise ValueError(
-            'Invalid error_handling value specified. Must be one of the values: "raise", "ignore", "coerce"')
-
-
-def _do_parallel(func, tasks, initializer, initargs, n_cpu, total, disable, error_behaviour, set_error_value, show_vmem,
+def _do_parallel(func, tasks, initializer, initargs, n_cpu, total, disable, show_vmem,
                  q, executor, desc):
     if not n_cpu:
         n_cpu = mp.cpu_count()
-    if executor not in ['threads', 'processes']:
-        raise ValueError('Invalid executor value specified. Must be one of the values: "threads", "processes"')
     thread_ = Thread(target=_process_status, args=(total, disable, show_vmem, desc, q))
     thread_.start()
-    bar_parameters = dict(total=total, disable=disable, position=1, desc='ERROR', colour='red')
-    error_bar = {}
     if executor == 'threads':
         exc_pool = mp.pool.ThreadPool(n_cpu, initializer=initializer, initargs=initargs)
     else:
@@ -138,26 +111,21 @@ def _do_parallel(func, tasks, initializer, initargs, n_cpu, total, disable, erro
                 result.append(next(iter_result))
             except StopIteration:
                 break
-            except Exception as e:
-                _update_error_bar(error_bar, bar_parameters)
-                _error_behaviour(error_behaviour, e, result, set_error_value, q)
-    if error_bar:
-        error_bar['bar'].close()
     q.put((None, None))
     thread_.join()
     return result
 
 
 def progress_imap(func, tasks, q, executor='threads', initializer=None, initargs=(), n_cpu=None, total=None,
-                  disable=False, process_timeout=None, error_behaviour='raise', set_error_value=None, show_vmem=False,
-                  desc='DONE'
+                  disable=False, process_timeout=None, show_vmem=False, desc=''
                   ):
+    if executor not in ['threads', 'processes']:
+        raise ValueError('Invalid executor value specified. Must be one of the values: "threads", "processes"')
     try:
         if process_timeout:
             func = partial(_wrapped_func, func, process_timeout, True)
-        result = _do_parallel(func, tasks, initializer, initargs, n_cpu, total, disable, error_behaviour, set_error_value,
-                              show_vmem, q, executor, desc)
-    except Exception:
+        result = _do_parallel(func, tasks, initializer, initargs, n_cpu, total, disable, show_vmem, q, executor, desc)
+    except (KeyboardInterrupt, Exception):
         q.put((None, None))
         raise
     return result
