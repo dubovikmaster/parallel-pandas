@@ -28,15 +28,6 @@ def get_pandas_version():
     return int(major), int(minor)
 
 
-def iterate_by_df(df, idx, axis):
-    if axis:
-        for i in idx:
-            yield df.iloc[i[0]:i[-1]+1, :]
-    else:
-        for i in idx:
-            yield df.iloc[:, i[0]:i[-1]+1]
-
-
 def get_comb_cnt(x):
     return len(list(combinations(range(x), 2)))
 
@@ -47,10 +38,20 @@ def get_col_combinations(df):
         yield df.iloc[:, idx[0]], df.iloc[:, idx[1]]
 
 
-def get_split_data(df, axis, split_size):
+def iterate_by_df(df, idx, axis, offset):
+    if axis:
+        for i in idx:
+            start = max(0, i[0] - offset)
+            yield df.iloc[start:i[-1] + 1]
+    else:
+        for i in idx:
+            yield df.iloc[:, i[0]:i[-1] + 1]
+
+
+def get_split_data(df, axis, split_size, offset=0):
     split_size = min(split_size, df.shape[1 - axis])
     idx_split = np.array_split(np.arange(df.shape[1 - axis]), split_size)
-    tasks = iterate_by_df(df, idx_split, axis)
+    tasks = iterate_by_df(df, idx_split, axis, offset)
     return tasks
 
 

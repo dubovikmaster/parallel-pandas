@@ -16,7 +16,16 @@ from .core import ParallelizeMinCountStatFunc
 from .core import ParallelizeAccumFunc
 from .core import parallelize_quantile
 from .core import parallelize_mode
-# from .core import parallelize_pct_change
+from .core import ParallelRolling
+from .core import ParallelExpanding
+from .core import ParallelEWM
+from .core import ParallelEWMGroupby
+from .core import ParallelExpandingGroupby
+from .core import ParallelRollingGroupby
+
+ROLL_AND_EXP_OPS = ['mean', 'max', 'min', 'sum', 'std', 'var', 'median', 'skew', 'kurt', 'sem', 'quantile', 'rank',
+                    'apply']
+EWM_OPS = ['mean', 'sum', 'std', 'var']
 
 
 class ParallelPandas:
@@ -112,8 +121,49 @@ class ParallelPandas:
         pd.DataFrame.p_mode = parallelize_mode(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar, show_vmem=show_vmem,
                                                split_factor=split_factor)
 
-        # pd.DataFrame.p_pct_change = parallelize_pct_change(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
-        #                                                    show_vmem=show_vmem, split_factor=split_factor)
+        # Rolling parallel methods
+        for name in ROLL_AND_EXP_OPS:
+            setattr(pd.core.window.Rolling, 'p_' + name, ParallelRolling(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
+                                                                         show_vmem=show_vmem,
+                                                                         split_factor=split_factor).do_parallel(name))
+
+        # Expanding parallel methods
+        for name in ROLL_AND_EXP_OPS:
+            setattr(pd.core.window.Expanding, 'p_' + name, ParallelExpanding(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
+                                                                             show_vmem=show_vmem,
+                                                                             split_factor=split_factor).do_parallel(
+                name))
+
+        # ExponentialMovingWindow parallel methods
+        for name in EWM_OPS:
+            setattr(pd.core.window.ExponentialMovingWindow, 'p_' + name,
+                    ParallelEWM(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
+                                show_vmem=show_vmem,
+                                split_factor=split_factor).do_parallel(
+                        name))
+
+        # RollingGroupby parallel methods
+        for name in ROLL_AND_EXP_OPS:
+            setattr(pd.core.window.RollingGroupby, 'p_' + name,
+                    ParallelRollingGroupby(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
+                                           show_vmem=show_vmem,
+                                           split_factor=split_factor).do_parallel(name))
+
+        # ExpandingGroupby parallel methods
+        for name in ROLL_AND_EXP_OPS:
+            setattr(pd.core.window.ExpandingGroupby, 'p_' + name,
+                    ParallelExpandingGroupby(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
+                                             show_vmem=show_vmem,
+                                             split_factor=split_factor).do_parallel(
+                        name))
+
+        # ExponentialMovingWindow parallel methods
+        for name in EWM_OPS:
+            setattr(pd.core.window.ExponentialMovingWindowGroupby, 'p_' + name,
+                    ParallelEWMGroupby(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
+                                       show_vmem=show_vmem,
+                                       split_factor=split_factor).do_parallel(
+                        name))
 
         # add parallel methods to DataFrameGroupBy and SeriesGroupBy
         pd.core.groupby.DataFrameGroupBy.p_apply = parallelize_groupby_apply(n_cpu=n_cpu,

@@ -19,18 +19,18 @@ DOC = 'Parallel analogue of the DataFrame.{func} method\nSee pandas DataFrame do
       'information\nhttps://pandas.pydata.org/docs/reference/frame.html '
 
 
-def _do_apply(data, dill_func, workers_queue, axis, raw, result_type, args, kwargs):
-    func = dill.loads(dill_func)
-    return data.apply(progress_udf_wrapper(func, workers_queue, data.shape[1 - axis]), axis=axis, raw=raw,
-                      result_type=result_type, args=args, **kwargs)
-
-
 def _get_split_size(n_cpu, split_factor):
     if n_cpu is None:
         n_cpu = cpu_count()
     if split_factor is None:
         split_factor = 4
     return n_cpu * split_factor
+
+
+def _do_apply(data, dill_func, workers_queue, axis, raw, result_type, args, kwargs):
+    func = dill.loads(dill_func)
+    return data.apply(progress_udf_wrapper(func, workers_queue, data.shape[1 - axis]), axis=axis, raw=raw,
+                      result_type=result_type, args=args, **kwargs)
 
 
 def parallelize_apply(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
@@ -282,32 +282,6 @@ def parallelize_mode(n_cpu=None, disable_pr_bar=False, split_factor=1,
         return pd.concat(result, axis=1 - axis, copy=False)
 
     return p_mode
-
-
-def do_pct_change(df, workers_queue, periods, fill_method, limit, freq, kwargs):
-    def foo():
-        return df.pct_change(periods=periods, fill_method=fill_method, limit=limit, freq=freq, **kwargs)
-
-    return progress_udf_wrapper(foo, workers_queue, 1)()
-
-
-def parallelize_pct_change(n_cpu=None, disable_pr_bar=False, split_factor=1,
-                           show_vmem=False):
-    @doc(DOC, func='pct_change')
-    def p_pct_change(data, periods=1, fill_method="pad", limit=None, freq=None, **kwargs):
-        workers_queue = Manager().Queue()
-        axis = kwargs.get('axis', 0)
-        split_size = _get_split_size(n_cpu, split_factor)
-        tasks = get_split_data(data, axis, split_size)
-        total = min(split_size, data.shape[1 - axis])
-        result = progress_imap(
-            partial(do_pct_change, workers_queue=workers_queue, periods=periods, fill_method=fill_method, limit=limit,
-                    freq=freq, kwargs=kwargs), tasks, workers_queue, n_cpu=n_cpu, disable=disable_pr_bar,
-            show_vmem=show_vmem, total=total, desc='PCT_CHANGE'
-        )
-        return pd.concat(result, axis=1 - axis, copy=False)
-
-    return p_pct_change
 
 
 class ParallelizeStatFunc:
