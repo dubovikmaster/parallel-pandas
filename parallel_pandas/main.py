@@ -1,6 +1,7 @@
 import pandas as pd
 
 from .core import parallelize_apply
+from .core import parallelize_split_apply
 from .core import parallelize_replace
 from .core import ParallelizeStatFunc
 from .core import ParallelizeStatFuncDdof
@@ -120,6 +121,10 @@ class ParallelPandas:
 
         pd.DataFrame.p_mode = parallelize_mode(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar, show_vmem=show_vmem,
                                                split_factor=split_factor)
+
+        pd.DataFrame.split_apply = parallelize_split_apply(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
+                                                           show_vmem=show_vmem,
+                                                           split_factor=split_factor)
 
         # Rolling parallel methods
         for name in ROLL_AND_EXP_OPS:

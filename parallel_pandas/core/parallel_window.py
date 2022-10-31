@@ -2,20 +2,14 @@ from __future__ import annotations
 
 from functools import partial
 from multiprocessing import cpu_count, Manager
-import time
-import numpy as np
 import pandas as pd
-from pandas._libs import lib
-from pandas.core.window.rolling import Rolling
 from pandas.util._decorators import doc
-
 import dill
-
 from .progress_imap import progress_imap
 from .progress_imap import progress_udf_wrapper
 from .tools import get_split_data
 
-DOC = 'Parallel analogue of the pd.core.window.rolling.Rollin.{func} method\nSee pandas DataFrame docstring for more ' \
+DOC = 'Parallel analogue of the {func} method\nSee pandas DataFrame docstring for more ' \
       'information\nhttps://pandas.pydata.org/docs/reference/window.html'
 
 
@@ -179,7 +173,7 @@ class ParallelRolling:
             return p_apply
 
 
-class ParallGroupbyMixin(ParallelRolling):
+class ParallelGroupbyMixin(ParallelRolling):
 
     def do_method(self, data, workers_queue, name, window_attr, args, kwargs):
         if name == 'apply':
@@ -208,7 +202,7 @@ class ParallGroupbyMixin(ParallelRolling):
         return out
 
 
-class ParallelRollingGroupby(ParallGroupbyMixin, ParallelRolling):
+class ParallelRollingGroupby(ParallelGroupbyMixin, ParallelRolling):
     pass
 
 
@@ -228,7 +222,7 @@ class ParallelExpanding(ParallelRolling):
         return axis, offset
 
 
-class ParallelExpandingGroupby(ParallGroupbyMixin, ParallelExpanding):
+class ParallelExpandingGroupby(ParallelGroupbyMixin, ParallelExpanding):
     pass
 
 
@@ -247,37 +241,6 @@ class ParallelEWM(ParallelRolling):
     def _get_method(df, name, kwargs):
         return getattr(df.ewm(**kwargs), name)
 
-    def do_parallel(self, name):
-        if name == 'mean':
-            @doc(DOC, func=name)
-            def p_mean(data, *args, engine=None, engine_kwargs=None, **kwargs):
-                return self.parallelize_method(data, name, *args, engine=engine, engine_kwargs=engine_kwargs, **kwargs)
 
-            return p_mean
-
-        if name == 'sum':
-            @doc(DOC, func=name)
-            def p_sum(data, *args, engine=None, engine_kwargs=None, **kwargs):
-                return self.parallelize_method(data, name, *args, engine=engine, engine_kwargs=engine_kwargs, **kwargs)
-
-            return p_sum
-
-        if name == 'std':
-            @doc(DOC, func=name)
-            def p_std(data, ddof=1, *args, engine=None, engine_kwargs=None, **kwargs):
-                return self.parallelize_method(data, name, ddof=ddof, *args, engine=engine, engine_kwargs=engine_kwargs,
-                                               **kwargs)
-
-            return p_std
-
-        if name == 'var':
-            @doc(DOC, func=name)
-            def p_var(data, ddof=1, *args, engine=None, engine_kwargs=None, **kwargs):
-                return self.parallelize_method(data, name, ddof=ddof, *args, engine=engine, engine_kwargs=engine_kwargs,
-                                               **kwargs)
-
-            return p_var
-
-
-class ParallelEWMGroupby(ParallGroupbyMixin, ParallelEWM):
+class ParallelEWMGroupby(ParallelGroupbyMixin, ParallelEWM):
     pass

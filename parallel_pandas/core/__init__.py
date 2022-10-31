@@ -14,6 +14,7 @@ from .parallel_dataframe import ParallelizeMinCountStatFunc
 from .parallel_dataframe import ParallelizeAccumFunc
 from .parallel_dataframe import parallelize_quantile
 from .parallel_dataframe import parallelize_mode
+from .parallel_dataframe import parallelize_split_apply
 from .parallel_window import ParallelRolling
 from .parallel_window import ParallelExpanding
 from .parallel_window import ParallelEWM
