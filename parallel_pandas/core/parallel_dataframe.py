@@ -53,17 +53,18 @@ def parallelize_apply(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_f
     return p_apply
 
 
-def _do_split_apply(data, dill_func, workers_queue, args, kwargs):
+def _do_chunk_apply(data, dill_func, workers_queue, args, kwargs):
     func = dill.loads(dill_func)
+
     def foo():
         return func(data, *args, **kwargs)
 
     return progress_udf_wrapper(foo, workers_queue, 1)()
 
 
-def parallelize_split_apply(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
+def parallelize_chunk_apply(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
     @doc(DOC, func='split_apply')
-    def split_apply(data, func, executor='processes', axis=0, split_by_col=None, args=(), **kwargs):
+    def chunk_apply(data, func, executor='processes', axis=0, split_by_col=None, args=(), **kwargs):
         workers_queue = Manager().Queue()
         split_size = _get_split_size(n_cpu, split_factor)
         if split_by_col:
@@ -73,18 +74,13 @@ def parallelize_split_apply(n_cpu=None, disable_pr_bar=False, show_vmem=False, s
         else:
             tasks = get_split_data(data, axis, split_size)
         dill_func = dill.dumps(func)
-        result = progress_imap(partial(_do_split_apply, dill_func=dill_func,
+        result = progress_imap(partial(_do_chunk_apply, dill_func=dill_func,
                                        workers_queue=workers_queue, args=args, kwargs=kwargs),
                                tasks, workers_queue, n_cpu=n_cpu, total=split_size, disable=disable_pr_bar,
-                               show_vmem=show_vmem, executor=executor, desc='split_apply'.upper())
-        concat_axis = 0
-        if result:
-            if isinstance(result[0], pd.DataFrame):
-                if split_by_col is None:
-                    concat_axis = 1 - axis
-        return pd.concat(result, axis=concat_axis, copy=False)
+                               show_vmem=show_vmem, executor=executor, desc='chunk_apply'.upper())
+        return pd.concat(result, axis=axis, copy=False)
 
-    return split_apply
+    return chunk_apply
 
 
 def _do_replace(df, workers_queue, **kwargs):

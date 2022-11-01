@@ -12,6 +12,7 @@ from .progress_imap import progress_udf_wrapper
 DOC = 'Parallel analogue of the GroupBy.{func} method\nSee pandas GroupBy docstring for more ' \
       'information\nhttps://pandas.pydata.org/docs/reference/groupby.html'
 
+
 def _do_group_apply(data, dill_func, workers_queue, args, kwargs):
     func = dill.loads(dill_func)
     result = progress_udf_wrapper(func, workers_queue, 1)(data[1], *args, **kwargs)
