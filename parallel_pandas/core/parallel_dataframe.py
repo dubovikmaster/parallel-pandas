@@ -63,7 +63,6 @@ def _do_chunk_apply(data, dill_func, workers_queue, args, kwargs):
 
 
 def parallelize_chunk_apply(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
-    @doc(DOC, func='split_apply')
     def chunk_apply(data, func, executor='processes', axis=0, split_by_col=None, args=(), **kwargs):
         workers_queue = Manager().Queue()
         split_size = _get_split_size(n_cpu, split_factor)
@@ -72,7 +71,7 @@ def parallelize_chunk_apply(n_cpu=None, disable_pr_bar=False, show_vmem=False, s
             group = data.groupby(split_by_col)
             tasks = (pd.concat([group.get_group(j) for j in i], copy=False) for i in idx_split)
         else:
-            tasks = get_split_data(data, axis, split_size)
+            tasks = get_split_data(data, 1-axis, split_size)
         dill_func = dill.dumps(func)
         result = progress_imap(partial(_do_chunk_apply, dill_func=dill_func,
                                        workers_queue=workers_queue, args=args, kwargs=kwargs),
