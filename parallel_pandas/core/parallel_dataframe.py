@@ -8,7 +8,10 @@ import pandas as pd
 from pandas._libs import lib
 from pandas.core import nanops
 from pandas.util._decorators import doc
-
+from pandas._typing import (
+    IndexLabel,
+    Suffixes
+)
 import dill
 
 from .progress_imap import progress_imap
@@ -71,7 +74,7 @@ def parallelize_chunk_apply(n_cpu=None, disable_pr_bar=False, show_vmem=False, s
             group = data.groupby(split_by_col)
             tasks = (pd.concat([group.get_group(j) for j in i], copy=False) for i in idx_split)
         else:
-            tasks = get_split_data(data, 1-axis, split_size)
+            tasks = get_split_data(data, 1 - axis, split_size)
         dill_func = dill.dumps(func)
         result = progress_imap(partial(_do_chunk_apply, dill_func=dill_func,
                                        workers_queue=workers_queue, args=args, kwargs=kwargs),
@@ -298,7 +301,7 @@ def do_mode(df, workers_queue, axis, numeric_only, dropna):
 def parallelize_mode(n_cpu=None, disable_pr_bar=False, split_factor=1,
                      show_vmem=False):
     @doc(DOC, func='mode')
-    def p_mode(data, executor='threads', axis=0, numeric_only: bool = False, dropna=True):
+    def p_mode(data, executor='processes', axis=0, numeric_only: bool = False, dropna=True):
         workers_queue = Manager().Queue()
         split_size = _get_split_size(n_cpu, split_factor)
         tasks = get_split_data(data, axis, split_size)
@@ -311,6 +314,43 @@ def parallelize_mode(n_cpu=None, disable_pr_bar=False, split_factor=1,
         return pd.concat(result, axis=1 - axis, copy=False)
 
     return p_mode
+
+
+def do_merge(df, workers_queue, right, **kwargs):
+    def foo():
+        return df.merge(right, **kwargs)
+
+    return progress_udf_wrapper(foo, workers_queue, 1)()
+
+
+def parallelize_merge(n_cpu=None, disable_pr_bar=False, split_factor=1,
+                      show_vmem=False):
+    @doc(DOC, func='mode')
+    def p_merge(data,
+                right: pd.DataFrame | pd.Series,
+                how: str = "inner",
+                on: IndexLabel | None = None,
+                left_on: IndexLabel | None = None,
+                right_on: IndexLabel | None = None,
+                left_index: bool = False,
+                right_index: bool = False,
+                sort: bool = False,
+                suffixes: Suffixes = ("_x", "_y"),
+                copy: bool = True,
+                indicator: bool = False,
+                validate: str | None = None, ):
+        workers_queue = Manager().Queue()
+        split_size = _get_split_size(n_cpu, split_factor)
+        tasks = get_split_data(data, 1, split_size)
+        total = min(split_size, data.shape[0])
+        result = progress_imap(
+            partial(do_merge, workers_queue=workers_queue, how=how, right=right, on=on,
+                    ), tasks, workers_queue,
+            n_cpu=n_cpu, disable=disable_pr_bar, show_vmem=show_vmem, total=total, executor='threads', desc='MERGE'
+        )
+        return pd.concat(result,  copy=False)
+
+    return p_merge
 
 
 class ParallelizeStatFunc:
