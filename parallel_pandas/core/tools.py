@@ -1,6 +1,6 @@
 import _thread as thread
 import threading
-
+from multiprocessing import cpu_count
 from functools import wraps
 from itertools import combinations
 
@@ -36,6 +36,14 @@ def get_col_combinations(df):
     iterator = combinations(range(df.shape[1]), 2)
     for idx in iterator:
         yield df.iloc[:, idx[0]], df.iloc[:, idx[1]]
+
+
+def get_split_size(n_cpu, split_factor):
+    if n_cpu is None:
+        n_cpu = cpu_count()
+    if split_factor is None:
+        split_factor = 4
+    return n_cpu * split_factor
 
 
 def iterate_by_df(df, idx, axis, offset):

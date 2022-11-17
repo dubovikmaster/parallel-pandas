@@ -1,5 +1,7 @@
 import pandas as pd
 
+from .core import series_parallelize_apply
+from .core import series_parallelize_map
 from .core import parallelize_apply
 from .core import parallelize_chunk_apply
 from .core import parallelize_replace
@@ -34,9 +36,10 @@ class ParallelPandas:
     @staticmethod
     def initialize(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
         # add parallel methods to Series
-        # pd.Series.parallel_apply = parallelize_apply(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
-        #                                              set_error_value=set_error_value, error_behavior=error_behavior,
-        #                                              show_vmem=show_vmem)
+        pd.Series.p_apply = series_parallelize_apply(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar, show_vmem=show_vmem,
+                                                     split_factor=split_factor)
+        pd.Series.p_map = series_parallelize_map(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar, show_vmem=show_vmem,
+                                                 split_factor=split_factor)
 
         # add parallel methods to DataFrame
         pd.DataFrame.p_apply = parallelize_apply(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar, show_vmem=show_vmem,

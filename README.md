@@ -61,6 +61,20 @@ df = pd.DataFrame(np.random.random((1_000_000, 100)))
 
 During initialization, we specified `split_factor=4` and `n_cpu = 16`, so the DataFrame will be split into 64 chunks (in the case of the `describe` method, axis = 1) and the progress bar shows the progress for each chunk
 
+### Parallel counterparts for pandas Series methods
+
+| methods           | parallel analogue   | executor             |
+|-------------------|---------------------|----------------------|
+| pd.Series.apply() | pd.Series.p_apply() | threads / processes  |
+| pd.Series.map()   | pd.Series.p_map()   | threads / processes  |
+
+
+### Parallel counterparts for pandas SeriesGroupBy methods
+
+| methods                  | parallel analogue   | executor                |
+|--------------------------|---------------------|-------------------------|
+| pd.SeriesGroupBy.apply() | pd.SeriesGroupBy.p_apply() | threads / processes     |
+
 ### Parallel counterparts for pandas Dataframe methods
 
 | methods       | parallel analogue | executor           |
