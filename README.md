@@ -3,6 +3,9 @@ Makes it easy to parallelize your calculations in pandas on all your CPUs.
 
 ## Installation
 
+```python
+pip install --upgrade parallel-pandas
+```
 
 ## Quickstart
 ```python
@@ -103,13 +106,23 @@ Pay attention to memory consumption. `parallel-pandas` and `dask` use almost hal
 
 For some methods parallel-pandas is faster than dask DataFrame:
 ```python
+#dask
 %%time
 res = ddf.nunique().compute()
 Wall time: 42.9 s
 
 %%time
+res = ddf.rolling(10).mean().compute()
+Wall time: 19.1 s
+
+#parallel-pandas
+%%time
 res = df.p_nunique()
 Wall time: 12.9 s
+
+%%time
+res = df.rolling(10).p_mean()
+Wall time: 12.5 s
 ```
 
 ### Parallel counterparts for pandas Series methods
