@@ -35,10 +35,12 @@ As you can see the `p_quantile` method is 5 times faster!
 <div class="alert alert-block alert-warning">
 <b>Warning:</b> You will only notice performance gains if your data is very large.
 </div>
-When initializing parallel-pandas you can specify the following options:
+
 
 Under the hood, **parallel-pandas** works very simply. The Dataframe or Series is split into chunks along the first or second axis. Then these chunks are passed to a pool of processes or threads where the desired method is executed on each part. At the end, the parts are concatenated to get the final result.
 
+
+When initializing parallel-pandas you can specify the following options:
 1. `n_cpu` - the number of cores of your CPU that you want to use (default `None` - use all cores of CPU)
 2. `split_factor` - Affects the number of chunks into which the DataFrame/Series is split according to the formula `chunks_number = split_factor*n_cpu` (default 1).
 3. `show_vmem` - Shows a progress bar with available RAM (default `False`)
@@ -61,6 +63,54 @@ df = pd.DataFrame(np.random.random((1_000_000, 100)))
 
 During initialization, we specified `split_factor=4` and `n_cpu = 16`, so the DataFrame will be split into 64 chunks (in the case of the `describe` method, axis = 1) and the progress bar shows the progress for each chunk
 
+You can parallelize any expression with pandas Dataframe. For example, let's do a z-score normalization of columns in a dataframe. Let's look at the execution time and memory consumption. Compare with synchronous execution and with Dask.DataFrame
+```python
+import pandas as pd
+import numpy as np
+from parallel_pandas import ParallelPandas
+import dask.dataframe as dd
+from time import monotonic
+
+#initialize parallel-pandas
+ParallelPandas.initialize(n_cpu=16, split_factor=8, disable_pr_bar=False)
+
+# create big DataFrame
+df = pd.DataFrame(np.random.random((1_000_000, 1000)))
+
+# create dask DataFrame
+ddf = dd.from_pandas(df, npartitions=128)
+
+start = monotonic()
+res=(df-df.mean())/df.std()
+print(f'synchronous z-score normalization time took: {monotonic()-start:.1f} s.')
+
+synchronous z-score normalization time took: 21.7 s.
+
+start = monotonic()
+res=(df-df.p_mean())/df.p_std()
+print(f'parallel z-score normalization time took: {monotonic()-start:.1f} s.')
+
+parallel z-score normalization time took: 11.7 s.
+
+start = monotonic()
+res=((ddf-ddf.mean())/ddf.std()).compute()
+print(f'dask parallel z-score normalization time took: {monotonic()-start:.1f} s.')
+
+dask parallel z-score normalization time took: 12.5 s.
+```
+Pay attention to memory consumption
+![]()
+
+For some methods parallel-pandas is faster than dask DataFrame:
+```python
+%%time
+res = ddf.nunique().compute()
+Wall time: 42.9 s
+
+res = df.p_nunique()
+```
+![]()
+
 ### Parallel counterparts for pandas Series methods
 
 | methods           | parallel analogue   | executor             |
@@ -71,8 +121,8 @@ During initialization, we specified `split_factor=4` and `n_cpu = 16`, so the Da
 
 ### Parallel counterparts for pandas SeriesGroupBy methods
 
-| methods                  | parallel analogue   | executor                |
-|--------------------------|---------------------|-------------------------|
+| methods                  | parallel analogue          | executor                |
+|--------------------------|----------------------------|-------------------------|
 | pd.SeriesGroupBy.apply() | pd.SeriesGroupBy.p_apply() | threads / processes     |
 
 ### Parallel counterparts for pandas Dataframe methods

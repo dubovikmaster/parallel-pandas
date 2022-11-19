@@ -153,6 +153,32 @@ def parallelize_describe(n_cpu=None, disable_pr_bar=False, show_vmem=False, spli
     return p_describe
 
 
+def do_pct_change(df, workers_queue, periods, fill_method, limit, freq, kwargs):
+    def foo():
+        return df.pct_change(periods=periods, fill_method=fill_method, limit=limit, freq=freq, **kwargs)
+
+    return progress_udf_wrapper(foo, workers_queue, 1)()
+
+
+def parallelize_pct_change(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
+    @doc(DOC, func='pct_change')
+    def p_pct_change(data, periods=1,
+                     fill_method="pad",
+                     limit=None,
+                     freq=None,
+                     **kwargs, ):
+        workers_queue = Manager().Queue()
+        split_size = get_split_size(n_cpu, split_factor)
+        tasks = get_split_data(data, 0, split_size)
+        result = progress_imap(
+            partial(do_pct_change, workers_queue=workers_queue, periods=periods, fill_method=fill_method, limit=limit,
+                    freq=freq, kwargs=kwargs), tasks, workers_queue, n_cpu=n_cpu, disable=disable_pr_bar,
+            show_vmem=show_vmem, total=min(split_size, data.shape[1]), desc='PCT_CHANGE')
+        return pd.concat(result, copy=False, axis=1)
+
+    return p_pct_change
+
+
 def parallelize_nunique(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
     @doc(DOC, func='nunique')
     def p_nunique(data, executor='threads', axis=0, dropna=True):
@@ -269,7 +295,7 @@ def do_quantile(df, workers_queue, axis, q, numeric_only, interpolation):
 def parallelize_quantile(n_cpu=None, disable_pr_bar=False, split_factor=1,
                          show_vmem=False):
     @doc(DOC, func='quantile')
-    def p_quantile(data, axis=0, q=0.5, numeric_only: bool = True, interpolation: str = "linear"):
+    def p_quantile(data, q=0.5, axis=0, numeric_only: bool = True, interpolation: str = "linear"):
         workers_queue = Manager().Queue()
         split_size = get_split_size(n_cpu, split_factor)
         tasks = get_split_data(data, axis, split_size)

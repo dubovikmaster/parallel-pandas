@@ -18,7 +18,6 @@ from .core import parallelize_rank
 from .core import ParallelizeMinCountStatFunc
 from .core import ParallelizeAccumFunc
 from .core import parallelize_quantile
-from .core import parallelize_merge
 from .core import parallelize_mode
 from .core import ParallelRolling
 from .core import ParallelExpanding
@@ -129,9 +128,6 @@ class ParallelPandas:
         pd.DataFrame.chunk_apply = parallelize_chunk_apply(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
                                                            show_vmem=show_vmem,
                                                            split_factor=split_factor)
-        # pd.DataFrame.p_merge = parallelize_merge(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
-        #                                          show_vmem=show_vmem,
-        #                                          split_factor=split_factor)
 
         # Rolling parallel methods
         for name in ROLL_AND_EXP_OPS:
