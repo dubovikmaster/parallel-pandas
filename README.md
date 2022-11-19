@@ -98,8 +98,8 @@ print(f'dask parallel z-score normalization time took: {monotonic()-start:.1f} s
 
 dask parallel z-score normalization time took: 12.5 s.
 ```
-Pay attention to memory consumption
-![]()
+Pay attention to memory consumption. `parallel-pandas` and `dask` use almost half as much RAM as `pandas`
+![](https://raw.githubusercontent.com/dubovikmaster/parallel-pandas/master/gifs/ram_usage.png)
 
 For some methods parallel-pandas is faster than dask DataFrame:
 ```python
@@ -107,9 +107,10 @@ For some methods parallel-pandas is faster than dask DataFrame:
 res = ddf.nunique().compute()
 Wall time: 42.9 s
 
+%%time
 res = df.p_nunique()
+Wall time: 12.9 s
 ```
-![]()
 
 ### Parallel counterparts for pandas Series methods
 
