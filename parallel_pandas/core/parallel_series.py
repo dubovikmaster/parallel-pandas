@@ -37,7 +37,7 @@ def series_parallelize_apply(n_cpu=None, disable_pr_bar=False, show_vmem=False, 
                                tasks, workers_queue, n_cpu=n_cpu, total=data.shape[0], disable=disable_pr_bar,
                                show_vmem=show_vmem, executor=executor, desc=func.__name__.upper())
 
-        return pd.concat(result, copy=False)
+        return pd.concat(result)
 
     return p_apply
 
@@ -61,6 +61,6 @@ def series_parallelize_map(n_cpu=None, disable_pr_bar=False, show_vmem=False, sp
                                tasks, workers_queue, n_cpu=n_cpu, total=split_size, disable=disable_pr_bar,
                                show_vmem=show_vmem, executor=executor, desc='map'.upper())
 
-        return pd.concat(result, copy=False)
+        return pd.concat(result)
 
     return p_map

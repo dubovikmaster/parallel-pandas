@@ -58,8 +58,8 @@ class ParallelRolling:
         axis, offset = self._get_axis_and_offset(data)
         if offset:
             result = [result[0]] + [s[offset:] for s in result[1:]]
-            return pd.concat(result, axis=1 - axis, copy=False, ignore_index=True)
-        return pd.concat(result, axis=1 - axis, copy=False)
+            return pd.concat(result, axis=1 - axis, ignore_index=True)
+        return pd.concat(result, axis=1 - axis)
 
     def parallelize_method(self, data, name, executor, *args, **kwargs):
         attributes = {attribute: getattr(data, attribute) for attribute in data._attributes}
@@ -159,7 +159,7 @@ class ParallelRolling:
 
         if name == 'rank':
             @doc(DOC, func=name)
-            def p_rank(data, executor='threads', method='average', ascending=True, pct=False, **kwargs):
+            def p_rank(data, executor='processes', method='average', ascending=True, pct=False, **kwargs):
                 return self.parallelize_method(data, name, executor, method=method, ascending=ascending, pct=pct,
                                                **kwargs)
 
@@ -174,7 +174,7 @@ class ParallelRolling:
 
         if name == 'apply':
             @doc(DOC, func=name)
-            def p_apply(data, func, executor='threads', raw=False, engine=None, engine_kwargs=None, args=None,
+            def p_apply(data, func, executor='processes', raw=False, engine=None, engine_kwargs=None, args=None,
                         kwargs=None):
                 return self.parallelize_method(data, name, executor, func, raw=raw, engine=engine,
                                                engine_kwargs=engine_kwargs,
@@ -207,7 +207,7 @@ class ParallelGroupbyMixin(ParallelRolling):
         return data._grouper.ngroups
 
     def _data_reduce(self, result, data):
-        out = pd.concat(result, copy=False)
+        out = pd.concat(result)
         out.rename_axis(data._grouper.names + [data._grouper.axis.name], inplace=True)
         return out
 

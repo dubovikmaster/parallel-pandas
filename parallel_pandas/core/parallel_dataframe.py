@@ -46,7 +46,7 @@ def parallelize_apply(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_f
         if result:
             if isinstance(result[0], pd.DataFrame):
                 concat_axis = 1 - axis
-        return pd.concat(result, axis=concat_axis, copy=False)
+        return pd.concat(result, axis=concat_axis)
 
     return p_apply
 
@@ -75,7 +75,7 @@ def parallelize_chunk_apply(n_cpu=None, disable_pr_bar=False, show_vmem=False, s
                                        workers_queue=workers_queue, args=args, kwargs=kwargs),
                                tasks, workers_queue, n_cpu=n_cpu, total=split_size, disable=disable_pr_bar,
                                show_vmem=show_vmem, executor=executor, desc='chunk_apply'.upper())
-        return pd.concat(result, axis=axis, copy=False)
+        return pd.concat(result, axis=axis)
 
     return chunk_apply
 
@@ -99,7 +99,7 @@ def parallelize_replace(n_cpu=None, disable_pr_bar=False, show_vmem=False, split
                                total=split_size, n_cpu=n_cpu, disable=disable_pr_bar, show_vmem=show_vmem,
                                desc='REPLACE')
 
-        return pd.concat(result, copy=False)
+        return pd.concat(result)
 
     return p_replace
 
@@ -121,7 +121,7 @@ def parallelize_applymap(n_cpu=None, disable_pr_bar=False, show_vmem=False, spli
             partial(do_applymap, workers_queue=workers_queue, dill_func=dill_func, na_action=na_action,
                     kwargs=kwargs), tasks, workers_queue, n_cpu=n_cpu, disable=disable_pr_bar, show_vmem=show_vmem,
             total=data.size, executor='processes', desc='APPLYMAP')
-        return pd.concat(result, copy=False)
+        return pd.concat(result)
 
     return p_applymap
 
@@ -148,7 +148,7 @@ def parallelize_describe(n_cpu=None, disable_pr_bar=False, show_vmem=False, spli
             partial(do_describe, workers_queue=workers_queue, percentiles=percentiles, include=include, exclude=exclude,
                     datetime_is_numeric=datetime_is_numeric), tasks, workers_queue, n_cpu=n_cpu, disable=disable_pr_bar,
             show_vmem=show_vmem, total=min(split_size, data.shape[1]), desc='DESCRIBE')
-        return pd.concat(result, copy=False, axis=1)
+        return pd.concat(result, axis=1)
 
     return p_describe
 
@@ -166,15 +166,16 @@ def parallelize_pct_change(n_cpu=None, disable_pr_bar=False, show_vmem=False, sp
                      fill_method="pad",
                      limit=None,
                      freq=None,
-                     **kwargs, ):
+                     **kwargs,):
+        axis = kwargs.get('axis', 0)
         workers_queue = Manager().Queue()
         split_size = get_split_size(n_cpu, split_factor)
-        tasks = get_split_data(data, 0, split_size)
+        tasks = get_split_data(data, axis, split_size)
         result = progress_imap(
             partial(do_pct_change, workers_queue=workers_queue, periods=periods, fill_method=fill_method, limit=limit,
                     freq=freq, kwargs=kwargs), tasks, workers_queue, n_cpu=n_cpu, disable=disable_pr_bar,
             show_vmem=show_vmem, total=min(split_size, data.shape[1]), desc='PCT_CHANGE')
-        return pd.concat(result, copy=False, axis=1)
+        return pd.concat(result, axis=1-axis)
 
     return p_pct_change
 
@@ -207,7 +208,7 @@ def parallelize_mad(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_fac
             partial(do_mad, workers_queue=workers_queue, axis=axis, skipna=skipna, level=level), tasks, workers_queue,
             n_cpu=n_cpu, disable=disable_pr_bar, show_vmem=show_vmem, total=total, desc='MAD'
         )
-        return pd.concat(result, copy=False)
+        return pd.concat(result)
 
     return p_mad
 
@@ -230,7 +231,7 @@ def parallelize_idxmax(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_
             partial(do_idxmax, workers_queue=workers_queue, axis=axis, skipna=skipna), tasks, workers_queue,
             n_cpu=n_cpu, disable=disable_pr_bar, show_vmem=show_vmem, total=total, desc='IDXMAX'
         )
-        return pd.concat(result, copy=False)
+        return pd.concat(result)
 
     return p_idxmax
 
@@ -253,7 +254,7 @@ def parallelize_idxmin(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_
             partial(do_idxmin, workers_queue=workers_queue, axis=axis, skipna=skipna), tasks, workers_queue,
             n_cpu=n_cpu, disable=disable_pr_bar, show_vmem=show_vmem, total=total, desc='IDXMIN'
         )
-        return pd.concat(result, copy=False)
+        return pd.concat(result)
 
     return p_idxmin
 
@@ -280,7 +281,7 @@ def parallelize_rank(n_cpu=None, disable_pr_bar=False, split_factor=1,
                     na_option=na_option, ascending=ascending, pct=pct), tasks, workers_queue,
             n_cpu=n_cpu, disable=disable_pr_bar, show_vmem=show_vmem, total=total, desc='RANK'
         )
-        return pd.concat(result, axis=1 - axis, copy=False)
+        return pd.concat(result, axis=1 - axis)
 
     return p_rank
 
@@ -306,8 +307,8 @@ def parallelize_quantile(n_cpu=None, disable_pr_bar=False, split_factor=1,
             n_cpu=n_cpu, disable=disable_pr_bar, show_vmem=show_vmem, total=total, desc='QUANTILE'
         )
         if not lib.is_list_like(q):
-            return pd.concat(result, copy=False)
-        return pd.concat(result, axis=1, copy=False)
+            return pd.concat(result)
+        return pd.concat(result, axis=1)
 
     return p_quantile
 
@@ -332,7 +333,7 @@ def parallelize_mode(n_cpu=None, disable_pr_bar=False, split_factor=1,
                     ), tasks, workers_queue,
             n_cpu=n_cpu, disable=disable_pr_bar, show_vmem=show_vmem, total=total, executor=executor, desc='MODE'
         )
-        return pd.concat(result, axis=1 - axis, copy=False)
+        return pd.concat(result, axis=1 - axis)
 
     return p_mode
 
@@ -369,7 +370,7 @@ def parallelize_merge(n_cpu=None, disable_pr_bar=False, split_factor=1,
                     ), tasks, workers_queue,
             n_cpu=n_cpu, disable=disable_pr_bar, show_vmem=show_vmem, total=total, executor='threads', desc='MERGE'
         )
-        return pd.concat(result, copy=False)
+        return pd.concat(result)
 
     return p_merge
 
@@ -411,7 +412,7 @@ class ParallelizeStatFunc:
             partial(self._stat_func, workers_queue=workers_queue, name=name, axis=axis, skipna=skipna,
                     level=level, numeric_only=numeric_only, kwargs=kwargs), tasks, workers_queue,
             total=total, n_cpu=self.n_cpu, disable=self.disable_pr_bar, show_vmem=self.show_vmem, desc=name.upper())
-        return pd.concat(result, copy=False)
+        return pd.concat(result)
 
     def do_parallel(self, name):
         if name == 'min':
@@ -492,7 +493,7 @@ class ParallelizeStatFuncDdof:
             partial(self._stat_func_ddof, workers_queue=workers_queue, name=name, axis=axis, skipna=skipna,
                     level=level, ddof=ddof, numeric_only=numeric_only, kwargs=kwargs), tasks, workers_queue,
             total=total, n_cpu=self.n_cpu, disable=self.disable_pr_bar, show_vmem=self.show_vmem, desc=name.upper())
-        return pd.concat(result, copy=False)
+        return pd.concat(result)
 
     def do_parallel(self, name):
         if name == 'var':
@@ -553,7 +554,7 @@ class ParallelizeMinCountStatFunc:
             partial(self._min_count_stat_func, workers_queue=workers_queue, name=name, axis=axis, skipna=skipna,
                     level=level, min_count=min_count, numeric_only=numeric_only, kwargs=kwargs), tasks, workers_queue,
             total=total, n_cpu=self.n_cpu, disable=self.disable_pr_bar, show_vmem=self.show_vmem, desc=name.upper())
-        return pd.concat(result, copy=False)
+        return pd.concat(result)
 
     def do_parallel(self, name):
         if name == 'sum':
@@ -619,7 +620,7 @@ class ParallelizeAccumFunc:
             total=total, n_cpu=self.n_cpu, disable=self.disable_pr_bar, show_vmem=self.show_vmem, desc=name.upper())
         if not axis:
             return self._concat_by_columns(result)
-        return pd.concat(result, axis=1 - axis, copy=False)
+        return pd.concat(result, axis=1 - axis)
 
     def do_parallel(self, name):
         if name == 'cumsum':

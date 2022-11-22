@@ -3,11 +3,10 @@ from setuptools import setup, find_packages
 with open('README.md', encoding='utf-8') as f:
     long_description = f.read()
 
-
 setup(
     name='parallel-pandas',
     python_requires='>=3.7',
-    version='0.3.8',
+    version='0.3.9',
     packages=find_packages(),
     author='Dubovik Pavel',
     author_email='geometryk@gmail.com',
@@ -21,6 +20,7 @@ setup(
         'parallel groupby',
         'multiprocessing bar',
     ],
+    url='https://github.com/dubovikmaster/parallel-pandas',
     license='MIT',
     install_requires=[
         'pandas >= 1.4.0',

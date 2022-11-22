@@ -23,22 +23,17 @@ df = pd.DataFrame(np.random.random((1_000_000, 100)))
 %%timeit
 res = df.quantile(q=[.25, .5, .95], axis=1)
 ```
-3.66 s ± 31.6 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
+`3.66 s ± 31.6 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)`
 ```python
 #p_quantile is parallel analogue of quantile methods. Can use all cores of your CPU.
 %%timeit
 res = df.p_quantile(q=[.25, .5, .95], axis=1)
 ```
-679 ms ± 10.4 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
+`679 ms ± 10.4 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)`
 
-As you can see the `p_quantile` method is 5 times faster!
+As you can see the `p_quantile` method is **5 times faster**!
 
 ## Usage
-
-<div class="alert alert-block alert-warning">
-<b>Warning:</b> You will only notice performance gains if your data is very large.
-</div>
-
 
 Under the hood, **parallel-pandas** works very simply. The Dataframe or Series is split into chunks along the first or second axis. Then these chunks are passed to a pool of processes or threads where the desired method is executed on each part. At the end, the parts are concatenated to get the final result.
 
@@ -75,7 +70,7 @@ import dask.dataframe as dd
 from time import monotonic
 
 #initialize parallel-pandas
-ParallelPandas.initialize(n_cpu=16, split_factor=8, disable_pr_bar=False)
+ParallelPandas.initialize(n_cpu=16, split_factor=8, disable_pr_bar=True)
 
 # create big DataFrame
 df = pd.DataFrame(np.random.random((1_000_000, 1000)))
@@ -86,25 +81,34 @@ ddf = dd.from_pandas(df, npartitions=128)
 start = monotonic()
 res=(df-df.mean())/df.std()
 print(f'synchronous z-score normalization time took: {monotonic()-start:.1f} s.')
-
+```
+```python
 synchronous z-score normalization time took: 21.7 s.
-
+```
+```python
+#parallel-pandas
 start = monotonic()
 res=(df-df.p_mean())/df.p_std()
 print(f'parallel z-score normalization time took: {monotonic()-start:.1f} s.')
-
+```
+```python
 parallel z-score normalization time took: 11.7 s.
-
+```
+```python
+#dask dataframe
 start = monotonic()
 res=((ddf-ddf.mean())/ddf.std()).compute()
 print(f'dask parallel z-score normalization time took: {monotonic()-start:.1f} s.')
-
+```
+```python
 dask parallel z-score normalization time took: 12.5 s.
 ```
+
 Pay attention to memory consumption. `parallel-pandas` and `dask` use almost half as much RAM as `pandas`
+
 ![](https://raw.githubusercontent.com/dubovikmaster/parallel-pandas/master/gifs/ram_usage.png)
 
-For some methods parallel-pandas is faster than dask DataFrame:
+For some methods `parallel-pandas` is faster than `dask.DataFrame`:
 ```python
 #dask
 %%time
