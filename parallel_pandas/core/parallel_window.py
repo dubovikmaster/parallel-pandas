@@ -64,6 +64,11 @@ class ParallelRolling:
     def parallelize_method(self, data, name, executor, *args, **kwargs):
         attributes = {attribute: getattr(data, attribute) for attribute in data._attributes}
         attributes.pop("_grouper", None)
+        if isinstance(attributes['win_type'], str):
+            if attributes['win_type'] == 'freq':
+                attributes['win_type'] = None
+            else:
+                raise NotImplementedError('Parallel weighted window are not implemented')
         workers_queue = Manager().Queue()
         tasks = self._get_split_data(data)
         total = self._get_total_tasks(data)
@@ -193,8 +198,10 @@ class ParallelGroupbyMixin(ParallelRolling):
         def foo():
             method = self._get_method(data[1], name, window_attr)
             result = method(*args, **kwargs)
-            idx = [[i] for i in data[0]] + [result.index.tolist()]
-
+            if isinstance(data[0], tuple):
+                idx = [[i] for i in data[0]] + [result.index.tolist()]
+            else:
+                idx = [[data[0]], result.index.tolist()]
             result.index = pd.MultiIndex.from_product(idx)
             return result
 
