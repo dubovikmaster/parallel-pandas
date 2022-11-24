@@ -61,14 +61,16 @@ class ParallelRolling:
             return pd.concat(result, axis=1 - axis, ignore_index=True)
         return pd.concat(result, axis=1 - axis)
 
-    def parallelize_method(self, data, name, executor, *args, **kwargs):
+    @staticmethod
+    def _get_attributes(data):
         attributes = {attribute: getattr(data, attribute) for attribute in data._attributes}
         attributes.pop("_grouper", None)
-        if isinstance(attributes['win_type'], str):
-            if attributes['win_type'] == 'freq':
-                attributes['win_type'] = None
-            else:
-                raise NotImplementedError('Parallel weighted window are not implemented')
+        if attributes['win_type'] == 'freq':
+            attributes['win_type'] = None
+        return attributes
+
+    def parallelize_method(self, data, name, executor, *args, **kwargs):
+        attributes = self._get_attributes(data)
         workers_queue = Manager().Queue()
         tasks = self._get_split_data(data)
         total = self._get_total_tasks(data)
@@ -91,6 +93,7 @@ class ParallelRolling:
                                                **kwargs)
 
             return p_mean
+
         if name == 'median':
             @doc(DOC, func=name)
             def p_median(data, executor='threads', engine=None, engine_kwargs=None, **kwargs):
@@ -186,6 +189,43 @@ class ParallelRolling:
                                                args=args, kwargs=kwargs)
 
             return p_apply
+
+
+class ParallelWindow(ParallelRolling):
+    @staticmethod
+    def _get_attributes(data):
+        attributes = {attribute: getattr(data, attribute) for attribute in data._attributes}
+        attributes.pop("_grouper", None)
+        return attributes
+
+    def do_parallel(self, name):
+        if name == 'mean':
+            @doc(DOC, func=name)
+            def p_mean(data, executor='threads', **kwargs):
+                return self.parallelize_method(data, name, executor, **kwargs)
+
+            return p_mean
+
+        if name == 'sum':
+            @doc(DOC, func=name)
+            def p_sum(data, executor='threads', **kwargs):
+                return self.parallelize_method(data, name, executor, **kwargs)
+
+            return p_sum
+
+        if name == 'std':
+            @doc(DOC, func=name)
+            def p_std(data, executor='threads', **kwargs):
+                return self.parallelize_method(data, name, executor, **kwargs)
+
+            return p_std
+
+        if name == 'var':
+            @doc(DOC, func=name)
+            def p_var(data, executor='threads', **kwargs):
+                return self.parallelize_method(data, name, executor, **kwargs)
+
+            return p_var
 
 
 class ParallelGroupbyMixin(ParallelRolling):

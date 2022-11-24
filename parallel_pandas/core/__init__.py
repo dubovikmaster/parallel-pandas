@@ -25,4 +25,5 @@ from .parallel_window import ParallelEWM
 from .parallel_window import ParallelRollingGroupby
 from .parallel_window import ParallelExpandingGroupby
 from .parallel_window import ParallelEWMGroupby
+from .parallel_window import ParallelWindow
 

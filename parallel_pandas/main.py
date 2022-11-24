@@ -26,10 +26,11 @@ from .core import ParallelEWM
 from .core import ParallelEWMGroupby
 from .core import ParallelExpandingGroupby
 from .core import ParallelRollingGroupby
+from .core import ParallelWindow
 
 ROLL_AND_EXP_OPS = ['mean', 'max', 'min', 'sum', 'std', 'var', 'median', 'skew', 'kurt', 'sem', 'quantile', 'rank',
                     'apply']
-EWM_OPS = ['mean', 'sum', 'std', 'var']
+EWM_OPS = WIN_OPS = ['mean', 'sum', 'std', 'var']
 
 
 class ParallelPandas:
@@ -139,6 +140,13 @@ class ParallelPandas:
             setattr(pd.core.window.Rolling, 'p_' + name, ParallelRolling(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
                                                                          show_vmem=show_vmem,
                                                                          split_factor=split_factor).do_parallel(name))
+
+        # Rolling parallel methods
+        for name in WIN_OPS:
+            setattr(pd.core.window.Window, 'p_' + name, ParallelWindow(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
+                                                                       show_vmem=show_vmem,
+                                                                       split_factor=split_factor).do_parallel(
+                name))
 
         # Expanding parallel methods
         for name in ROLL_AND_EXP_OPS:

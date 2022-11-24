@@ -129,6 +129,8 @@ res = df.rolling(10).p_mean()
 Wall time: 12.5 s
 ```
 
+## API
+
 ### Parallel counterparts for pandas Series methods
 
 | methods           | parallel analogue   | executor             |
@@ -197,6 +199,17 @@ Wall time: 12.5 s
 | pd.core.window.Rolling.median()   | pd.core.window.Rolling.p_median()   | threads / processes |
 | pd.core.window.Rolling.quantile() | pd.core.window.Rolling.p_quantile() | threads / processes |
 | pd.core.window.Rolling.rank()     | pd.core.window.Rolling.p_rank()     | threads / processes |
+
+
+#### Window
+
+| methods                           | parallel analogue                   | executor            |
+|-----------------------------------|-------------------------------------|---------------------|
+| pd.core.window.Window.mean()     | pd.core.window.Window.p_mean()     | threads / processes |
+| pd.core.window.Window.sum()      | pd.core.window.Window.p_sum()      | threads / processes |
+| pd.core.window.Window.var()      | pd.core.window.Window.p_var()      | threads / processes |
+| pd.core.window.Window.std()      | pd.core.window.Window.p_std()      | threads / processes |
+
 
 #### RollingGroupby
 
