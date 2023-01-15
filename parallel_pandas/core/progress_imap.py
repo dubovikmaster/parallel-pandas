@@ -40,7 +40,7 @@ class MemoryProgressBar(tqdm):
 class ProgressStatus:
     def __init__(self):
         self.next_update = 1
-        self.last_update_t = time.monotonic()
+        self.last_update_t = time.perf_counter()
         self.last_update_val = 0
 
 
@@ -52,7 +52,7 @@ def progress_udf_wrapper(func, workers_queue, total):
         result = func(*args, **kwargs)
         updated = next(cnt)
         if updated == state.next_update:
-            time_now = time.monotonic()
+            time_now = time.perf_counter()
 
             delta_t = time_now - state.last_update_t
             delta_i = updated - state.last_update_val

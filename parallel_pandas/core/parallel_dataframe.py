@@ -80,6 +80,42 @@ def parallelize_chunk_apply(n_cpu=None, disable_pr_bar=False, show_vmem=False, s
     return chunk_apply
 
 
+def _do_aggregate(data, func, workers_queue, dilled_func, axis, args, kwargs):
+    if dilled_func:
+        func = dill.loads(func)
+    if isinstance(func, dict):
+        _axis = data._get_axis_number(axis)
+        func = {k: v for k, v in func.items() if k in data._get_axis(1-_axis)}
+
+    def foo():
+        return data.agg(func, axis=axis, *args, **kwargs)
+
+    return progress_udf_wrapper(foo, workers_queue, 1)()
+
+
+def parallelize_aggregate(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
+    @doc(DOC, func='aggregate')
+    def p_aggregate(data, func, executor='threads', axis=0, args=(), **kwargs):
+        workers_queue = Manager().Queue()
+        split_size = get_split_size(n_cpu, split_factor)
+        tasks = get_split_data(data, axis, split_size)
+        dilled_func = False
+        if callable(func):
+            dilled_func = True
+            func = dill.dumps(func)
+        result = progress_imap(partial(_do_aggregate, axis=axis, func=func,
+                                       workers_queue=workers_queue, dilled_func=dilled_func, args=args, kwargs=kwargs),
+                               tasks, workers_queue, n_cpu=n_cpu, total=split_size, disable=disable_pr_bar,
+                               show_vmem=show_vmem, executor=executor, desc='agg'.upper())
+        concat_axis = 0
+        if result:
+            if isinstance(result[0], pd.DataFrame):
+                concat_axis = 1 - axis
+        return pd.concat(result, axis=concat_axis)
+
+    return p_aggregate
+
+
 def _do_replace(df, workers_queue, **kwargs):
     def foo():
         return df.replace(**kwargs)
@@ -166,7 +202,7 @@ def parallelize_pct_change(n_cpu=None, disable_pr_bar=False, show_vmem=False, sp
                      fill_method="pad",
                      limit=None,
                      freq=None,
-                     **kwargs,):
+                     **kwargs, ):
         axis = kwargs.get('axis', 0)
         workers_queue = Manager().Queue()
         split_size = get_split_size(n_cpu, split_factor)
@@ -175,7 +211,7 @@ def parallelize_pct_change(n_cpu=None, disable_pr_bar=False, show_vmem=False, sp
             partial(do_pct_change, workers_queue=workers_queue, periods=periods, fill_method=fill_method, limit=limit,
                     freq=freq, kwargs=kwargs), tasks, workers_queue, n_cpu=n_cpu, disable=disable_pr_bar,
             show_vmem=show_vmem, total=min(split_size, data.shape[1]), desc='PCT_CHANGE')
-        return pd.concat(result, axis=1-axis)
+        return pd.concat(result, axis=1 - axis)
 
     return p_pct_change
 
@@ -373,6 +409,30 @@ def parallelize_merge(n_cpu=None, disable_pr_bar=False, split_factor=1,
         return pd.concat(result)
 
     return p_merge
+
+
+def do_isin(df, workers_queue, values):
+    def foo():
+        return df.isin(values)
+
+    return progress_udf_wrapper(foo, workers_queue, 1)()
+
+
+def parallelize_isin(n_cpu=None, disable_pr_bar=False, split_factor=1,
+                     show_vmem=False):
+    @doc(DOC, func='isin')
+    def p_isin(data, values):
+        workers_queue = Manager().Queue()
+        split_size = get_split_size(n_cpu, split_factor)
+        tasks = get_split_data(data, 1, split_size)
+        total = min(split_size, data.shape[0])
+        result = progress_imap(
+            partial(do_isin, workers_queue=workers_queue, values=values), tasks, workers_queue,
+            n_cpu=n_cpu, disable=disable_pr_bar, show_vmem=show_vmem, total=total, executor='threads', desc='ISIN'
+        )
+        return pd.concat(result)
+
+    return p_isin
 
 
 class ParallelizeStatFunc:

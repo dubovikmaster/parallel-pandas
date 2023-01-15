@@ -19,6 +19,8 @@ from .parallel_dataframe import parallelize_mode
 from .parallel_dataframe import parallelize_chunk_apply
 from .parallel_dataframe import parallelize_merge
 from .parallel_dataframe import parallelize_pct_change
+from .parallel_dataframe import parallelize_isin
+from .parallel_dataframe import parallelize_aggregate
 from .parallel_window import ParallelRolling
 from .parallel_window import ParallelExpanding
 from .parallel_window import ParallelEWM

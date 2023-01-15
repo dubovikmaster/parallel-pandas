@@ -19,7 +19,8 @@ from .core import ParallelizeMinCountStatFunc
 from .core import ParallelizeAccumFunc
 from .core import parallelize_quantile
 from .core import parallelize_mode
-from .core import parallelize_pct_change
+from .core import parallelize_isin
+from .core import parallelize_aggregate
 from .core import ParallelRolling
 from .core import ParallelExpanding
 from .core import ParallelEWM
@@ -29,7 +30,7 @@ from .core import ParallelRollingGroupby
 from .core import ParallelWindow
 
 ROLL_AND_EXP_OPS = ['mean', 'max', 'min', 'sum', 'std', 'var', 'median', 'skew', 'kurt', 'sem', 'quantile', 'rank',
-                    'apply']
+                    'apply', 'aggregate', 'agg']
 EWM_OPS = WIN_OPS = ['mean', 'sum', 'std', 'var']
 
 
@@ -41,10 +42,15 @@ class ParallelPandas:
                                                      split_factor=split_factor)
         pd.Series.p_map = series_parallelize_map(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar, show_vmem=show_vmem,
                                                  split_factor=split_factor)
+        pd.Series.p_isin = parallelize_isin(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar, show_vmem=show_vmem,
+                                            split_factor=split_factor)
 
         # add parallel methods to DataFrame
         pd.DataFrame.p_apply = parallelize_apply(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar, show_vmem=show_vmem,
                                                  split_factor=split_factor)
+
+        pd.DataFrame.p_agg = parallelize_aggregate(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar, show_vmem=show_vmem,
+                                                   split_factor=split_factor)
 
         pd.DataFrame.p_replace = parallelize_replace(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
                                                      show_vmem=show_vmem, split_factor=split_factor)
@@ -131,9 +137,9 @@ class ParallelPandas:
                                                            show_vmem=show_vmem,
                                                            split_factor=split_factor)
 
-        # pd.DataFrame.p_pct_change = parallelize_pct_change(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
-        #                                                    show_vmem=show_vmem,
-        #                                                    split_factor=split_factor)
+        pd.DataFrame.p_isin = parallelize_isin(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
+                                               show_vmem=show_vmem,
+                                               split_factor=split_factor)
 
         # Rolling parallel methods
         for name in ROLL_AND_EXP_OPS:
@@ -141,7 +147,7 @@ class ParallelPandas:
                                                                          show_vmem=show_vmem,
                                                                          split_factor=split_factor).do_parallel(name))
 
-        # Rolling parallel methods
+        # Window parallel methods
         for name in WIN_OPS:
             setattr(pd.core.window.Window, 'p_' + name, ParallelWindow(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
                                                                        show_vmem=show_vmem,

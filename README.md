@@ -147,33 +147,35 @@ Wall time: 12.5 s
 
 ### Parallel counterparts for pandas Dataframe methods
 
-| methods       | parallel analogue | executor           |
-|---------------|-------------------|--------------------|
-| df.mean()     | df.p_mean()       | threads            |
-| df.min()      | df.p_min()        | threads            |
-| df.max()      | df.p_max()        | threads            |
-| df.median()   | df.p_max()        | threads            |
-| df.kurt()     | df.p_kurt()       | threads            |
-| df.skew()     | df.p_skew()       | threads            |
-| df.sum()      | df.p_sum()        | threads            |
-| df.prod()     | df.p_prod()       | threads            |
-| df.var()      | df.p_var()        | threads            |
-| df.sem()      | df.p_sem()        | threads            |
-| df.std()      | df.p_std()        | threads            |
-| df.cummin()   | df.p_cummin()     | threads            |
-| df.cumsum()   | df.p_cumsum()     | threads            |
-| df.cummax()   | df.p_cummax()     | threads            |
-| df.cumprod()  | df.p_cumprod()    | threads            |
-| df.apply()    | df.p_apply()      | threads / processes|
-| df.applymap() | df.p_applymap()   | processes          |
-| df.replace()  | df.p_replace()    | threads            |
-| df.describe() | df.p_describe()   | threads            |
-| df.nunique()  | df.p_nunique()    | threads / processes|
-| df.mad()      | df.p_mad()        | threads            |
-| df.idxmin()   | df.p_idxmin()     | threads            |
-| df.idxmax()   | df.p_idxmax()     | threads            |
-| df.rank()     | df.p_rank()       | threads            |
-| df.mode()     | df.p_mode()       | threads/processes  |
+| methods        | parallel analogue | executor            |
+|----------------|-------------------|---------------------|
+| df.mean()      | df.p_mean()       | threads             |
+| df.min()       | df.p_min()        | threads             |
+| df.max()       | df.p_max()        | threads             |
+| df.median()    | df.p_max()        | threads             |
+| df.kurt()      | df.p_kurt()       | threads             |
+| df.skew()      | df.p_skew()       | threads             |
+| df.sum()       | df.p_sum()        | threads             |
+| df.prod()      | df.p_prod()       | threads             |
+| df.var()       | df.p_var()        | threads             |
+| df.sem()       | df.p_sem()        | threads             |
+| df.std()       | df.p_std()        | threads             |
+| df.cummin()    | df.p_cummin()     | threads             |
+| df.cumsum()    | df.p_cumsum()     | threads             |
+| df.cummax()    | df.p_cummax()     | threads             |
+| df.cumprod()   | df.p_cumprod()    | threads             |
+| df.apply()     | df.p_apply()      | threads / processes |
+| df.applymap()  | df.p_applymap()   | processes           |
+| df.replace()   | df.p_replace()    | threads             |
+| df.describe()  | df.p_describe()   | threads             |
+| df.nunique()   | df.p_nunique()    | threads / processes |
+| df.mad()       | df.p_mad()        | threads             |
+| df.idxmin()    | df.p_idxmin()     | threads             |
+| df.idxmax()    | df.p_idxmax()     | threads             |
+| df.rank()      | df.p_rank()       | threads             |
+| df.mode()      | df.p_mode()       | threads/processes   |
+| df.agg()       | df.p_agg()        | threads/processes   |
+| df.aggregate() | df.p_aggregate()  | threads/processes   |
 
 ### Parallel counterparts for pandas DataframeGroupBy methods
 
@@ -185,20 +187,22 @@ Wall time: 12.5 s
 
 #### Rolling
 
-| methods                           | parallel analogue                   | executor            |
-|-----------------------------------|-------------------------------------|---------------------|
-| pd.core.window.Rolling.apply()    | pd.core.window.Rolling.p_apply()    | threads / processes |
-| pd.core.window.Rolling.min()      | pd.core.window.Rolling.p_min()      | threads / processes |
-| pd.core.window.Rolling.max()      | pd.core.window.Rolling.p_max()      | threads / processes |
-| pd.core.window.Rolling.mean()     | pd.core.window.Rolling.p_mean()     | threads / processes |
-| pd.core.window.Rolling.sum()      | pd.core.window.Rolling.p_sum()      | threads / processes |
-| pd.core.window.Rolling.var()      | pd.core.window.Rolling.p_var()      | threads / processes |
-| pd.core.window.Rolling.sem()      | pd.core.window.Rolling.p_sem()      | threads / processes |
-| pd.core.window.Rolling.skew()     | pd.core.window.Rolling.p_skew()     | threads / processes |
-| pd.core.window.Rolling.kurt()     | pd.core.window.Rolling.p_kurt()     | threads / processes |
-| pd.core.window.Rolling.median()   | pd.core.window.Rolling.p_median()   | threads / processes |
-| pd.core.window.Rolling.quantile() | pd.core.window.Rolling.p_quantile() | threads / processes |
-| pd.core.window.Rolling.rank()     | pd.core.window.Rolling.p_rank()     | threads / processes |
+| methods                            | parallel analogue                    | executor            |
+|------------------------------------|--------------------------------------|---------------------|
+| pd.core.window.Rolling.apply()     | pd.core.window.Rolling.p_apply()     | threads / processes |
+| pd.core.window.Rolling.min()       | pd.core.window.Rolling.p_min()       | threads / processes |
+| pd.core.window.Rolling.max()       | pd.core.window.Rolling.p_max()       | threads / processes |
+| pd.core.window.Rolling.mean()      | pd.core.window.Rolling.p_mean()      | threads / processes |
+| pd.core.window.Rolling.sum()       | pd.core.window.Rolling.p_sum()       | threads / processes |
+| pd.core.window.Rolling.var()       | pd.core.window.Rolling.p_var()       | threads / processes |
+| pd.core.window.Rolling.sem()       | pd.core.window.Rolling.p_sem()       | threads / processes |
+| pd.core.window.Rolling.skew()      | pd.core.window.Rolling.p_skew()      | threads / processes |
+| pd.core.window.Rolling.kurt()      | pd.core.window.Rolling.p_kurt()      | threads / processes |
+| pd.core.window.Rolling.median()    | pd.core.window.Rolling.p_median()    | threads / processes |
+| pd.core.window.Rolling.quantile()  | pd.core.window.Rolling.p_quantile()  | threads / processes |
+| pd.core.window.Rolling.rank()      | pd.core.window.Rolling.p_rank()      | threads / processes |
+| pd.core.window.Rolling.agg()       | pd.core.window.Rolling.p_agg()       | threads / processes |
+| pd.core.window.Rolling.aggregate() | pd.core.window.Rolling.p_aggregate() | threads / processes |
 
 
 #### Window
@@ -213,55 +217,61 @@ Wall time: 12.5 s
 
 #### RollingGroupby
 
-| methods                                  | parallel analogue                          | executor            |
-|------------------------------------------|--------------------------------------------|---------------------|
-| pd.core.window.RollingGroupby.apply()    | pd.core.window.RollingGroupby.p_apply()    | threads / processes |
-| pd.core.window.RollingGroupby.min()      | pd.core.window.RollingGroupby.p_min()      | threads / processes |
-| pd.core.window.RollingGroupby.max()      | pd.core.window.RollingGroupby.p_max()      | threads / processes |
-| pd.core.window.RollingGroupby.mean()     | pd.core.window.RollingGroupby.p_mean()     | threads / processes |
-| pd.core.window.RollingGroupby.sum()      | pd.core.window.RollingGroupby.p_sum()      | threads / processes |
-| pd.core.window.RollingGroupby.var()      | pd.core.window.RollingGroupby.p_var()      | threads / processes |
-| pd.core.window.RollingGroupby.sem()      | pd.core.window.RollingGroupby.p_sem()      | threads / processes |
-| pd.core.window.RollingGroupby.skew()     | pd.core.window.RollingGroupby.p_skew()     | threads / processes |
-| pd.core.window.RollingGroupby.kurt()     | pd.core.window.RollingGroupby.p_kurt()     | threads / processes |
-| pd.core.window.RollingGroupby.median()   | pd.core.window.RollingGroupby.p_median()   | threads / processes |
-| pd.core.window.RollingGroupby.quantile() | pd.core.window.RollingGroupby.p_quantile() | threads / processes |
-| pd.core.window.RollingGroupby.rank()     | pd.core.window.RollingGroupby.p_rank()     | threads / processes |
+| methods                                   | parallel analogue                           | executor            |
+|-------------------------------------------|---------------------------------------------|---------------------|
+| pd.core.window.RollingGroupby.apply()     | pd.core.window.RollingGroupby.p_apply()     | threads / processes |
+| pd.core.window.RollingGroupby.min()       | pd.core.window.RollingGroupby.p_min()       | threads / processes |
+| pd.core.window.RollingGroupby.max()       | pd.core.window.RollingGroupby.p_max()       | threads / processes |
+| pd.core.window.RollingGroupby.mean()      | pd.core.window.RollingGroupby.p_mean()      | threads / processes |
+| pd.core.window.RollingGroupby.sum()       | pd.core.window.RollingGroupby.p_sum()       | threads / processes |
+| pd.core.window.RollingGroupby.var()       | pd.core.window.RollingGroupby.p_var()       | threads / processes |
+| pd.core.window.RollingGroupby.sem()       | pd.core.window.RollingGroupby.p_sem()       | threads / processes |
+| pd.core.window.RollingGroupby.skew()      | pd.core.window.RollingGroupby.p_skew()      | threads / processes |
+| pd.core.window.RollingGroupby.kurt()      | pd.core.window.RollingGroupby.p_kurt()      | threads / processes |
+| pd.core.window.RollingGroupby.median()    | pd.core.window.RollingGroupby.p_median()    | threads / processes |
+| pd.core.window.RollingGroupby.quantile()  | pd.core.window.RollingGroupby.p_quantile()  | threads / processes |
+| pd.core.window.RollingGroupby.rank()      | pd.core.window.RollingGroupby.p_rank()      | threads / processes |
+| pd.core.window.RollingGroupby.agg()       | pd.core.window.RollingGroupby.p_agg()       | threads / processes |
+| pd.core.window.RollingGroupby.aggregate() | pd.core.window.RollingGroupby.p_aggregate() | threads / processes |
 
 #### Expanding
 
-| methods                             | parallel analogue                     | executor            |
-|-------------------------------------|---------------------------------------|---------------------|
-| pd.core.window.Expanding.apply()    | pd.core.window.Expanding.p_apply()    | threads / processes |
-| pd.core.window.Expanding.min()      | pd.core.window.Expanding.p_min()      | threads / processes |
-| pd.core.window.Expanding.max()      | pd.core.window.Expanding.p_max()      | threads / processes |
-| pd.core.window.Expanding.mean()     | pd.core.window.Expanding.p_mean()     | threads / processes |
-| pd.core.window.Expanding.sum()      | pd.core.window.Expanding.p_sum()      | threads / processes |
-| pd.core.window.Expanding.var()      | pd.core.window.Expanding.p_var()      | threads / processes |
-| pd.core.window.Expanding.sem()      | pd.core.window.Expanding.p_sem()      | threads / processes |
-| pd.core.window.Expanding.skew()     | pd.core.window.Expanding.p_skew()     | threads / processes |
-| pd.core.window.Expanding.kurt()     | pd.core.window.Expanding.p_kurt()     | threads / processes |
-| pd.core.window.Expanding.median()   | pd.core.window.Expanding.p_median()   | threads / processes |
-| pd.core.window.Expanding.quantile() | pd.core.window.Expanding.p_quantile() | threads / processes |
-| pd.core.window.Expanding.rank()     | pd.core.window.Expanding.p_rank()     | threads / processes |
+| methods                              | parallel analogue                      | executor            |
+|--------------------------------------|----------------------------------------|---------------------|
+| pd.core.window.Expanding.apply()     | pd.core.window.Expanding.p_apply()     | threads / processes |
+| pd.core.window.Expanding.min()       | pd.core.window.Expanding.p_min()       | threads / processes |
+| pd.core.window.Expanding.max()       | pd.core.window.Expanding.p_max()       | threads / processes |
+| pd.core.window.Expanding.mean()      | pd.core.window.Expanding.p_mean()      | threads / processes |
+| pd.core.window.Expanding.sum()       | pd.core.window.Expanding.p_sum()       | threads / processes |
+| pd.core.window.Expanding.var()       | pd.core.window.Expanding.p_var()       | threads / processes |
+| pd.core.window.Expanding.sem()       | pd.core.window.Expanding.p_sem()       | threads / processes |
+| pd.core.window.Expanding.skew()      | pd.core.window.Expanding.p_skew()      | threads / processes |
+| pd.core.window.Expanding.kurt()      | pd.core.window.Expanding.p_kurt()      | threads / processes |
+| pd.core.window.Expanding.median()    | pd.core.window.Expanding.p_median()    | threads / processes |
+| pd.core.window.Expanding.quantile()  | pd.core.window.Expanding.p_quantile()  | threads / processes |
+| pd.core.window.Expanding.rank()      | pd.core.window.Expanding.p_rank()      | threads / processes |
+| pd.core.window.Expanding.agg()       | pd.core.window.Expanding.p_agg()       | threads / processes |
+| pd.core.window.Expanding.aggregate() | pd.core.window.Expanding.p_aggregate() | threads / processes |
 
 
 #### ExpandingGroupby
 
-| methods                                    | parallel analogue                            | executor            |
-|--------------------------------------------|----------------------------------------------|---------------------|
-| pd.core.window.ExpandingGroupby.apply()    | pd.core.window.ExpandingGroupby.p_apply()    | threads / processes |
-| pd.core.window.ExpandingGroupby.min()      | pd.core.window.ExpandingGroupby.p_min()      | threads / processes |
-| pd.core.window.ExpandingGroupby.max()      | pd.core.window.ExpandingGroupby.p_max()      | threads / processes |
-| pd.core.window.ExpandingGroupby.mean()     | pd.core.window.ExpandingGroupby.p_mean()     | threads / processes |
-| pd.core.window.ExpandingGroupby.sum()      | pd.core.window.ExpandingGroupby.p_sum()      | threads / processes |
-| pd.core.window.ExpandingGroupby.var()      | pd.core.window.ExpandingGroupby.p_var()      | threads / processes |
-| pd.core.window.ExpandingGroupby.sem()      | pd.core.window.ExpandingGroupby.p_sem()      | threads / processes |
-| pd.core.window.ExpandingGroupby.skew()     | pd.core.window.ExpandingGroupby.p_skew()     | threads / processes |
-| pd.core.window.ExpandingGroupby.kurt()     | pd.core.window.ExpandingGroupby.p_kurt()     | threads / processes |
-| pd.core.window.ExpandingGroupby.median()   | pd.core.window.ExpandingGroupby.p_median()   | threads / processes |
-| pd.core.window.ExpandingGroupby.quantile() | pd.core.window.ExpandingGroupby.p_quantile() | threads / processes |
-| pd.core.window.ExpandingGroupby.rank()     | pd.core.window.ExpandingGroupby.p_rank()     | threads / processes |
+| methods                                     | parallel analogue                             | executor            |
+|---------------------------------------------|-----------------------------------------------|---------------------|
+| pd.core.window.ExpandingGroupby.apply()     | pd.core.window.ExpandingGroupby.p_apply()     | threads / processes |
+| pd.core.window.ExpandingGroupby.min()       | pd.core.window.ExpandingGroupby.p_min()       | threads / processes |
+| pd.core.window.ExpandingGroupby.max()       | pd.core.window.ExpandingGroupby.p_max()       | threads / processes |
+| pd.core.window.ExpandingGroupby.mean()      | pd.core.window.ExpandingGroupby.p_mean()      | threads / processes |
+| pd.core.window.ExpandingGroupby.sum()       | pd.core.window.ExpandingGroupby.p_sum()       | threads / processes |
+| pd.core.window.ExpandingGroupby.var()       | pd.core.window.ExpandingGroupby.p_var()       | threads / processes |
+| pd.core.window.ExpandingGroupby.sem()       | pd.core.window.ExpandingGroupby.p_sem()       | threads / processes |
+| pd.core.window.ExpandingGroupby.skew()      | pd.core.window.ExpandingGroupby.p_skew()      | threads / processes |
+| pd.core.window.ExpandingGroupby.kurt()      | pd.core.window.ExpandingGroupby.p_kurt()      | threads / processes |
+| pd.core.window.ExpandingGroupby.median()    | pd.core.window.ExpandingGroupby.p_median()    | threads / processes |
+| pd.core.window.ExpandingGroupby.quantile()  | pd.core.window.ExpandingGroupby.p_quantile()  | threads / processes |
+| pd.core.window.ExpandingGroupby.rank()      | pd.core.window.ExpandingGroupby.p_rank()      | threads / processes |
+| pd.core.window.ExpandingGroupby.agg()       | pd.core.window.ExpandingGroupby.p_agg()       | threads / processes |
+| pd.core.window.ExpandingGroupby.aggregate() | pd.core.window.ExpandingGroupby.p_aggregate() | threads / processes |
 
 ### ExponentialMovingWindow
 
