@@ -6,7 +6,7 @@ with open('README.md', encoding='utf-8') as f:
 setup(
     name='parallel-pandas',
     python_requires='>=3.7',
-    version='0.5.1',
+    version='0.5.2',
     packages=find_packages(),
     author='Dubovik Pavel',
     author_email='geometryk@gmail.com',
