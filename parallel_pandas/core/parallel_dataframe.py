@@ -61,7 +61,8 @@ def _do_chunk_apply(data, dill_func, workers_queue, args, kwargs):
 
 
 def parallelize_chunk_apply(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
-    def chunk_apply(data, func, executor='processes', axis=0, split_by_col=None, args=(), **kwargs):
+    def chunk_apply(data, func, executor='processes', axis=0, split_by_col=None, 
+concat_result=True, args=(), **kwargs):
         workers_queue = Manager().Queue()
         split_size = get_split_size(n_cpu, split_factor)
         if split_by_col:
@@ -75,8 +76,10 @@ def parallelize_chunk_apply(n_cpu=None, disable_pr_bar=False, show_vmem=False, s
                                        workers_queue=workers_queue, args=args, kwargs=kwargs),
                                tasks, workers_queue, n_cpu=n_cpu, total=split_size, disable=disable_pr_bar,
                                show_vmem=show_vmem, executor=executor, desc='chunk_apply'.upper())
-        return pd.concat(result, axis=axis)
-
+        if concat_result:
+	    return pd.concat(result, axis=axis)
+        else:
+            return result
     return chunk_apply
 
 
