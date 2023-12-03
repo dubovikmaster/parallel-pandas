@@ -3,7 +3,6 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from multiprocessing import cpu_count
 
-import time
 from functools import partial
 from multiprocessing import Manager
 import numpy as np
