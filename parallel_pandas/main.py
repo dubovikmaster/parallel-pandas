@@ -28,6 +28,7 @@ from .core import ParallelEWMGroupby
 from .core import ParallelExpandingGroupby
 from .core import ParallelRollingGroupby
 from .core import ParallelWindow
+from .core import parallelize_corr
 
 ROLL_AND_EXP_OPS = ['mean', 'max', 'min', 'sum', 'std', 'var', 'median', 'skew', 'kurt', 'sem', 'quantile', 'rank',
                     'apply', 'aggregate', 'agg']
@@ -46,6 +47,8 @@ class ParallelPandas:
                                             split_factor=split_factor)
 
         # add parallel methods to DataFrame
+        pd.DataFrame.p_corr = parallelize_corr(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar, show_vmem=show_vmem,
+                                               split_factor=split_factor)
         pd.DataFrame.p_apply = parallelize_apply(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar, show_vmem=show_vmem,
                                                  split_factor=split_factor)
 

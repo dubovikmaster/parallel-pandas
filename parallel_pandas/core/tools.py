@@ -2,7 +2,7 @@ import _thread as thread
 import threading
 from multiprocessing import cpu_count
 from functools import wraps
-from itertools import combinations
+from concurrent.futures import ThreadPoolExecutor
 
 import platform
 import signal
@@ -28,14 +28,14 @@ def get_pandas_version():
     return int(major), int(minor)
 
 
-def get_comb_cnt(x):
-    return len(list(combinations(range(x), 2)))
+def _rank(mat):
+    return np.argsort(np.argsort(mat, axis=0), axis=0)
 
 
-def get_col_combinations(df):
-    iterator = combinations(range(df.shape[1]), 2)
-    for idx in iterator:
-        yield df.iloc[:, idx[0]], df.iloc[:, idx[1]]
+def parallel_rank(mat, n_cpu):
+    matrix_parts = np.array_split(mat, n_cpu, axis=1)
+    with ThreadPoolExecutor(n_cpu) as pool:
+        return np.hstack(list(pool.map(_rank, matrix_parts)))
 
 
 def get_split_size(n_cpu, split_factor):

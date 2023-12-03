@@ -21,8 +21,10 @@ DOC = 'Parallel analogue of the pd.Series.{func} method\nSee pandas Series docst
 
 def _do_apply(data, dill_func, workers_queue, convert_dtype, args, kwargs):
     func = dill.loads(dill_func)
-    return data.apply(progress_udf_wrapper(func, workers_queue, data.shape[0]),
-                      convert_dtype=convert_dtype, args=args, **kwargs)
+    if convert_dtype:
+        return data.apply(progress_udf_wrapper(func, workers_queue, data.shape[0]), args=args, **kwargs)
+    else:
+        return data.astype(object).apply(progress_udf_wrapper(func, workers_queue, data.shape[0]), args=args, **kwargs)
 
 
 def series_parallelize_apply(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):

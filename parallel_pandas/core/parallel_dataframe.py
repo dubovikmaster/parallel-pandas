@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+from multiprocessing import cpu_count
+
+import time
 from functools import partial
 from multiprocessing import Manager
-
 import numpy as np
 import pandas as pd
 from pandas._libs import lib
@@ -12,11 +15,16 @@ from pandas._typing import (
     IndexLabel,
     Suffixes
 )
+
+from scipy.stats import spearmanr, kendalltau
+
 import dill
 
+from ._numba import _do_parallel_corr
 from .progress_imap import progress_imap
 from .progress_imap import progress_udf_wrapper
 from .tools import (
+    parallel_rank,
     get_split_data,
     get_split_size,
 )
@@ -61,8 +69,8 @@ def _do_chunk_apply(data, dill_func, workers_queue, args, kwargs):
 
 
 def parallelize_chunk_apply(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
-    def chunk_apply(data, func, executor='processes', axis=0, split_by_col=None, 
-concat_result=True, args=(), **kwargs):
+    def chunk_apply(data, func, executor='processes', axis=0, split_by_col=None,
+                    concat_result=True, args=(), **kwargs):
         workers_queue = Manager().Queue()
         split_size = get_split_size(n_cpu, split_factor)
         if split_by_col:
@@ -79,8 +87,151 @@ concat_result=True, args=(), **kwargs):
         if concat_result:
             return pd.concat(result, axis=axis)
         else:
-           return result
+            return result
+
     return chunk_apply
+
+
+def _np_pearson_corr(a, b=None):
+    if b is None:
+        return np.corrcoef(a, rowvar=False)
+    return np.corrcoef(a, y=b)[0, 1]
+
+
+def _run_in_pool(func, tasks, n_cpu, executor):
+    chunk_size, extra = divmod(len(tasks), n_cpu)
+    if extra:
+        chunk_size += 1
+    if executor == 'processes':
+        pool = ProcessPoolExecutor(n_cpu)
+    else:
+        pool = ThreadPoolExecutor(n_cpu)
+    with pool as p:
+        result = list(p.map(func, tasks, chunksize=chunk_size))
+    return result
+
+
+def _pearson_corr(idx, mat, min_periods, isnan, isnan_flags, sums, sum_squareds):
+    row, col = idx
+    n = mat.shape[0]
+    if isnan_flags[row] or isnan_flags[col]:
+        valid = ~isnan[:, row] & ~isnan[:, col]
+        if valid.sum() < min_periods:
+            return np.nan
+        else:
+            return _np_pearson_corr(mat[valid, row], mat[valid, col])
+    else:
+        sum_xy = np.sum(mat[:, row] * mat[:, col])
+        numerator = n * sum_xy - sums[row] * sums[col]
+        denominator = np.sqrt(
+            (n * sum_squareds[row] - sums[row] * sums[row]) * (n * sum_squareds[col] - sums[col] * sums[col]))
+        return numerator / denominator if denominator != 0 else 0
+
+
+def _parallel_pearson_corr(mat, min_periods, executor, n_cpu):
+    comb = [(i, j) for i in range(mat.shape[1]) for j in range(i + 1, mat.shape[1])]
+    isnan = np.isnan(mat)
+    isnan_flags = isnan.sum(axis=0)
+    sums = np.sum(mat, axis=0)
+    sum_squareds = np.sum((mat * mat), axis=0)
+    func = partial(_pearson_corr, mat=mat, min_periods=min_periods, isnan=isnan, isnan_flags=isnan_flags, sums=sums,
+                   sum_squareds=sum_squareds)
+    result = _run_in_pool(func, comb, n_cpu, executor)
+    return result
+
+
+def _spearman_corr(idx, mat, min_periods, isnan, isnan_flags, ranks):
+    row, col = idx
+    n = mat.shape[0]
+    if isnan_flags[row] or isnan_flags[col]:
+        valid = ~isnan[:, row] & ~isnan[:, col]
+        if valid.sum() < min_periods:
+            return np.nan
+        else:
+            return _scipy_spearman_corr(mat[valid, row], mat[valid, col])
+    d = ranks[:, row] - ranks[:, col]
+    sum_d_squared = np.sum(d * d)
+    return 1 - (6 * sum_d_squared) / (n * (n ** 2 - 1))
+
+
+def _parallel_spearman_corr(mat, min_periods, executor, n_cpu):
+    comb = [(i, j) for i in range(mat.shape[1]) for j in range(i + 1, mat.shape[1])]
+    isnan = np.isnan(mat)
+    isnan_flags = isnan.sum(axis=0)
+    ranks = parallel_rank(mat, n_cpu)
+    func = partial(_spearman_corr, mat=mat, min_periods=min_periods, isnan=isnan, isnan_flags=isnan_flags, ranks=ranks)
+    result = _run_in_pool(func, comb, n_cpu, executor)
+    return result
+
+
+def _kendall_tau(x, y):
+    return kendalltau(x, y)[0]
+
+
+def _scipy_spearman_corr(x, y):
+    return spearmanr(x, y)[0]
+
+
+def _do_corr(idx, mat, min_periods, corrf):
+    a, b = mat[:, idx[0]], mat[:, idx[1]]
+    valid = np.isfinite(a) & np.isfinite(b)
+    if valid.sum() < min_periods:
+        c = np.nan
+    elif not valid.all():
+        c = corrf(a[valid], b[valid])
+    else:
+        c = corrf(a, b)
+    return c
+
+
+def _parallel_do_corr(mat, min_periods, corrf, executor, n_cpu):
+    comb = [(i, j) for i in range(mat.shape[1]) for j in range(i + 1, mat.shape[1])]
+    func = partial(_do_corr, min_periods=min_periods, mat=mat,  corrf=corrf)
+    result = _run_in_pool(func, comb, n_cpu, executor)
+    return result
+
+
+def parallelize_corr(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
+    if n_cpu is None:
+        n_cpu = cpu_count()
+
+    def p_corr(data, method='pearson', min_periods=1, numeric_only=False, executor='threads', engine=None):
+        data = data._get_numeric_data() if numeric_only else data
+        cols = data.columns
+        idx = cols.copy()
+        if method in ['pearson', 'spearman']:
+            if not data.isna().any().any():
+                if method == 'pearson':
+                    result = _np_pearson_corr(data.values)
+                elif method == 'spearman':
+                    ranks = parallel_rank(data.values, n_cpu)
+                    result = _np_pearson_corr(ranks)
+                return pd.DataFrame(result, index=idx, columns=idx)
+        mat = data.to_numpy(dtype=float, na_value=np.nan, copy=False)
+        if engine == 'numba':
+            return pd.DataFrame(_do_parallel_corr(mat, method=method, min_periods=min_periods), index=idx, columns=cols)
+        if method == 'pearson':
+            result = _parallel_pearson_corr(mat, min_periods, executor, n_cpu)
+        elif method == 'spearman':
+            result = _parallel_spearman_corr(mat, min_periods, executor, n_cpu)
+        elif method == 'kendall':
+            result = _parallel_do_corr(mat, min_periods, _kendall_tau, executor, n_cpu)
+        elif callable(method):
+            result = _parallel_do_corr(mat, min_periods, method, executor, n_cpu)
+        else:
+            raise ValueError(f'Unknown method {method}')
+
+        corr_mat = np.zeros((data.shape[1], data.shape[1]))
+        z = 0
+        for j in range(0, data.shape[1]):
+            for i in range(j + 1, data.shape[1]):
+                corr_mat[i, j] = result[z]
+                z += 1
+        result_mat = corr_mat + corr_mat.transpose()
+        np.fill_diagonal(result_mat, 1)
+        return pd.DataFrame(result_mat, index=idx, columns=idx)
+
+    return p_corr
 
 
 def _do_aggregate(data, func, workers_queue, dilled_func, axis, args, kwargs):
@@ -88,7 +239,7 @@ def _do_aggregate(data, func, workers_queue, dilled_func, axis, args, kwargs):
         func = dill.loads(func)
     if isinstance(func, dict):
         _axis = data._get_axis_number(axis)
-        func = {k: v for k, v in func.items() if k in data._get_axis(1-_axis)}
+        func = {k: v for k, v in func.items() if k in data._get_axis(1 - _axis)}
 
     def foo():
         return data.agg(func, axis=axis, *args, **kwargs)

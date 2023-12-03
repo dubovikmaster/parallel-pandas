@@ -1,4 +1,10 @@
 ## Parallel-pandas
+
+[![PyPI version fury.io](https://badge.fury.io/py/parallel-pandas.svg)](https://pypi.org/project/parallel-pandas/)
+[![PyPI license](https://img.shields.io/pypi/l/parallel-pandas.svg)](https://pypi.org/project/parallel-pandas/)
+[![PyPI download month](https://img.shields.io/pypi/dm/parallel-pandas.svg)](https://pypi.org/project/parallel-pandas/)
+
+
 Makes it easy to parallelize your calculations in pandas on all your CPUs.
 
 ## Installation
@@ -176,6 +182,8 @@ Wall time: 12.5 s
 | df.mode()      | df.p_mode()       | threads/processes   |
 | df.agg()       | df.p_agg()        | threads/processes   |
 | df.aggregate() | df.p_aggregate()  | threads/processes   |
+| df.quantile()  | df.p_quantile()   | threads/processes   |
+| df.corr()      | df.p_corr()       | threads/processes   |
 
 ### Parallel counterparts for pandas DataframeGroupBy methods
 

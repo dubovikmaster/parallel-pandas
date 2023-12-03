@@ -63,7 +63,6 @@ class ParallelRolling:
         return min(self.n_cpu * self.split_factor, data.obj.shape[1 - axis])
 
     def _data_reduce(self, result, data):
-        print(result[0])
         axis, offset = self._get_axis_and_offset(data)
         if offset:
             result = [result[0]] + [s[offset:] for s in result[1:]]
@@ -110,7 +109,6 @@ class ParallelRolling:
             tasks, workers_queue, n_cpu=self.n_cpu, disable=self.disable_pr_bar, show_vmem=self.show_vmem,
             total=total, desc=name.upper(), executor=executor,
         )
-        print('done')
         return self._data_reduce(result, data)
 
     def do_parallel(self, name):
