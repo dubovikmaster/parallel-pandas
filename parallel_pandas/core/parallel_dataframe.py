@@ -556,9 +556,10 @@ def parallelize_merge(n_cpu=None, disable_pr_bar=False, split_factor=1,
         tasks = get_split_data(data, 1, split_size)
         total = min(split_size, data.shape[0])
         result = progress_imap(
-            partial(do_merge, workers_queue=workers_queue, how=how, right=right, on=on,
-                    ), tasks, workers_queue,
-            n_cpu=n_cpu, disable=disable_pr_bar, show_vmem=show_vmem, total=total, executor='threads', desc='MERGE'
+            partial(do_merge, workers_queue=workers_queue, how=how, right=right, on=on, left_on=left_on, right_on=right_on,
+                    left_index=left_index, right_index=right_index, sort=sort, suffixes=suffixes, copy=copy, indicator=indicator,
+                    validate=validate), tasks, workers_queue, n_cpu=n_cpu, disable=disable_pr_bar, show_vmem=show_vmem,
+            total=total, executor='threads', desc='MERGE'
         )
         return pd.concat(result)
 
