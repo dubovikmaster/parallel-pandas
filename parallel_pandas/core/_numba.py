@@ -2,6 +2,8 @@ import numpy as np
 
 try:
     from numba import njit, prange
+
+
     @njit
     def _pearson_corr(x, y):
         return np.corrcoef(x, y)[0, 1]
