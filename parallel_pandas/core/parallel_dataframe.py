@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from multiprocessing import cpu_count
 
@@ -23,6 +24,7 @@ from ._numba import _do_parallel_corr
 from .progress_imap import progress_imap
 from .progress_imap import progress_udf_wrapper
 from .tools import (
+    get_pandas_version,
     parallel_rank,
     get_split_data,
     get_split_size,
@@ -30,6 +32,8 @@ from .tools import (
 
 DOC = 'Parallel analogue of the DataFrame.{func} method\nSee pandas DataFrame docstring for more ' \
       'information\nhttps://pandas.pydata.org/docs/reference/frame.html '
+
+MAJOR_PANDAS_VERSION, _ = get_pandas_version()
 
 
 def _do_apply(data, dill_func, workers_queue, axis, raw, result_type, args, kwargs):
@@ -315,13 +319,38 @@ def parallelize_applymap(n_cpu=None, disable_pr_bar=False, show_vmem=False, spli
     return p_applymap
 
 
+def do_map(df, workers_queue, dill_func, na_action, kwargs):
+    func = dill.loads(dill_func)
+
+    return df.map(progress_udf_wrapper(func, workers_queue, df.size), na_action=na_action, **kwargs)
+
+
+def parallelize_map(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
+    @doc(DOC, func='map')
+    def p_map(data, func, na_action=None, **kwargs):
+        workers_queue = Manager().Queue()
+        split_size = get_split_size(n_cpu, split_factor)
+        tasks = get_split_data(data, 1, split_size)
+        dill_func = dill.dumps(func)
+        result = progress_imap(
+            partial(do_map, workers_queue=workers_queue, dill_func=dill_func, na_action=na_action,
+                    kwargs=kwargs), tasks, workers_queue, n_cpu=n_cpu, disable=disable_pr_bar, show_vmem=show_vmem,
+            total=data.size, executor='processes', desc='MAP')
+        return pd.concat(result)
+
+    return p_map
+
+
 def do_describe(df, workers_queue, percentiles, include, exclude, datetime_is_numeric):
     if isinstance(df, pd.Series):
         df = df.to_frame()
-
-    def foo():
-        return df.describe(percentiles=percentiles, include=include, exclude=exclude,
-                           datetime_is_numeric=datetime_is_numeric)
+    if MAJOR_PANDAS_VERSION < 2:
+        def foo():
+            return df.describe(percentiles=percentiles, include=include, exclude=exclude,
+                               datetime_is_numeric=datetime_is_numeric)
+    else:
+        def foo():
+            return df.describe(percentiles=percentiles, include=include, exclude=exclude)
 
     return progress_udf_wrapper(foo, workers_queue, 1)()
 
@@ -330,6 +359,9 @@ def parallelize_describe(n_cpu=None, disable_pr_bar=False, show_vmem=False, spli
     @doc(DOC, func='describe')
     def p_describe(data, percentiles=None, include=None, exclude=None,
                    datetime_is_numeric=False):
+        if MAJOR_PANDAS_VERSION > 1:
+            if datetime_is_numeric:
+                warnings.warn('datetime_is_numeric is deprecated since pandas 2.0.0')
         workers_queue = Manager().Queue()
         split_size = get_split_size(n_cpu, split_factor)
         tasks = get_split_data(data, 0, split_size)

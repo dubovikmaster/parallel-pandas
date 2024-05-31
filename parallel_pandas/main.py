@@ -1,5 +1,7 @@
 import pandas as pd
 
+from .core.tools import get_pandas_version
+
 from .core import series_parallelize_apply
 from .core import series_parallelize_map
 from .core import parallelize_apply
@@ -29,10 +31,16 @@ from .core import ParallelExpandingGroupby
 from .core import ParallelRollingGroupby
 from .core import ParallelWindow
 from .core import parallelize_corr
+from .core import parallelize_map
 
 ROLL_AND_EXP_OPS = ['mean', 'max', 'min', 'sum', 'std', 'var', 'median', 'skew', 'kurt', 'sem', 'quantile', 'rank',
                     'apply', 'aggregate', 'agg']
 EWM_OPS = WIN_OPS = ['mean', 'sum', 'std', 'var']
+
+
+MAJOR, MINOR = get_pandas_version()
+
+PD_VERSION = MAJOR*10 + MINOR
 
 
 class ParallelPandas:
@@ -107,9 +115,14 @@ class ParallelPandas:
         pd.DataFrame.p_cumsum = ParallelizeAccumFunc(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
                                                      show_vmem=show_vmem,
                                                      split_factor=split_factor).do_parallel('cumsum')
-
-        pd.DataFrame.p_applymap = parallelize_applymap(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
-                                                       show_vmem=show_vmem)
+        if PD_VERSION < 21:
+            pd.DataFrame.p_applymap = parallelize_applymap(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
+                                                           show_vmem=show_vmem)
+        else:
+            pd.DataFrame.p_map = parallelize_map(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
+                                                      show_vmem=show_vmem)
+            pd.DataFrame.p_applymap = parallelize_applymap(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
+                                                           show_vmem=show_vmem)
         pd.DataFrame.p_describe = parallelize_describe(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
                                                        show_vmem=show_vmem,
                                                        split_factor=split_factor)

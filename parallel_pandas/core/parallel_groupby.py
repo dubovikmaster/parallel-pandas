@@ -54,6 +54,6 @@ def parallelize_groupby_apply(n_cpu=None, disable_pr_bar=False):
         # elif pandas_version < (1, 4):
         #     return data._wrap_applied_output(data.grouper._get_group_keys(), data.grouper._get_group_keys(), result,
         #                                      not_indexed_same=mutated or data.mutated)
-        return data._wrap_applied_output(data._selected_obj, result, not_indexed_same=mutated or data.mutated)
+        return data._wrap_applied_output(data._selected_obj, result, not_indexed_same=mutated)
 
     return p_apply
