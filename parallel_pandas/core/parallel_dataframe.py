@@ -645,7 +645,9 @@ class ParallelizeStatFunc:
 
     def _stat_func(self, df, workers_queue, name, axis, skipna, level, numeric_only, kwargs):
         def closure():
-            return df._stat_function(name, self.get_nanops_arg(name), axis, skipna, level, numeric_only, **kwargs)
+            if MAJOR_PANDAS_VERSION < 2:
+                return df._stat_function(name, self.get_nanops_arg(name), axis, skipna, level, numeric_only, **kwargs)
+            return df._stat_function(name, self.get_nanops_arg(name), axis, skipna, numeric_only, **kwargs)
 
         return progress_udf_wrapper(closure, workers_queue, 1)()
 
@@ -724,7 +726,10 @@ class ParallelizeStatFuncDdof:
 
     def _stat_func_ddof(self, df, workers_queue, name, axis, skipna, level, ddof, numeric_only, kwargs):
         def closure():
-            return df._stat_function_ddof(name, self.get_nanops_arg(name), axis, skipna, level, ddof, numeric_only,
+            if MAJOR_PANDAS_VERSION < 2:
+                return df._stat_function_ddof(name, self.get_nanops_arg(name), axis, skipna, level, ddof, numeric_only,
+                                              **kwargs)
+            return df._stat_function_ddof(name, self.get_nanops_arg(name), axis, skipna, ddof, numeric_only,
                                           **kwargs)
 
         return progress_udf_wrapper(closure, workers_queue, 1)()
@@ -784,7 +789,11 @@ class ParallelizeMinCountStatFunc:
 
     def _min_count_stat_func(self, df, workers_queue, name, axis, skipna, level, numeric_only, min_count, kwargs):
         def closure():
-            return df._min_count_stat_function(name, self.get_nanops_arg(name), axis, skipna, level, numeric_only,
+            if MAJOR_PANDAS_VERSION < 2:
+                return df._min_count_stat_function(name, self.get_nanops_arg(name), axis, skipna, level, numeric_only,
+                                                   min_count, **kwargs
+                                                   )
+            return df._min_count_stat_function(name, self.get_nanops_arg(name), axis, skipna, numeric_only,
                                                min_count, **kwargs
                                                )
 
