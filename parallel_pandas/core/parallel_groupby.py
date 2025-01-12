@@ -8,15 +8,20 @@ from pandas.util._decorators import doc
 import dill
 
 from .progress_imap import progress_udf_wrapper
+from .tools import (
+    get_pandas_version,
+)
 
 DOC = 'Parallel analogue of the GroupBy.{func} method\nSee pandas GroupBy docstring for more ' \
       'information\nhttps://pandas.pydata.org/docs/reference/groupby.html'
 
+MAJOR_PANDAS_VERSION, MINOR_PANDAS_VERSION = get_pandas_version()
+
 
 def _do_group_apply(data, dill_func, workers_queue, args, kwargs):
     func = dill.loads(dill_func)
-    result = progress_udf_wrapper(func, workers_queue, 1)(data[1], *args, **kwargs)
-    return result, data[1].axes, 0
+    result = progress_udf_wrapper(func, workers_queue, 1)(data, *args, **kwargs)
+    return result, data.axes, 0
 
 
 def _prepare_result(data):
@@ -29,12 +34,19 @@ def _prepare_result(data):
     return result, mutated
 
 
+def _get_group_iterator(data, include_groups):
+    if MAJOR_PANDAS_VERSION == 2 and MINOR_PANDAS_VERSION >= 2 and not include_groups:
+        return iter(data.grouper._get_splitter(data._obj_with_exclusions, data.axis))
+    else:
+        return iter(data.grouper._get_splitter(data._selected_obj, data.axis))
+
+
 def parallelize_groupby_apply(n_cpu=None, disable_pr_bar=False):
     @doc(DOC, func='apply')
-    def p_apply(data, func, executor='processes', args=(), **kwargs):
+    def p_apply(data, func, executor='processes', include_groups=True, args=(), **kwargs):
         workers_queue = Manager().Queue()
         gr_count = data.ngroups
-        iterator = iter(data)
+        iterator = _get_group_iterator(data, include_groups)
         dill_func = dill.dumps(func)
         result = progress_imap(
             partial(_do_group_apply, dill_func=dill_func, workers_queue=workers_queue, args=args, kwargs=kwargs),

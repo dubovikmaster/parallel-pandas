@@ -189,7 +189,7 @@ def _do_corr(idx, mat, min_periods, corrf):
 
 def _parallel_do_corr(mat, min_periods, corrf, executor, n_cpu):
     comb = [(i, j) for i in range(mat.shape[1]) for j in range(i + 1, mat.shape[1])]
-    func = partial(_do_corr, min_periods=min_periods, mat=mat,  corrf=corrf)
+    func = partial(_do_corr, min_periods=min_periods, mat=mat, corrf=corrf)
     result = _run_in_pool(func, comb, n_cpu, executor)
     return result
 
@@ -587,8 +587,10 @@ def parallelize_merge(n_cpu=None, disable_pr_bar=False, split_factor=1,
         tasks = get_split_data(data, 1, split_size)
         total = min(split_size, data.shape[0])
         result = progress_imap(
-            partial(do_merge, workers_queue=workers_queue, how=how, right=right, on=on, left_on=left_on, right_on=right_on,
-                    left_index=left_index, right_index=right_index, sort=sort, suffixes=suffixes, copy=copy, indicator=indicator,
+            partial(do_merge, workers_queue=workers_queue, how=how, right=right, on=on, left_on=left_on,
+                    right_on=right_on,
+                    left_index=left_index, right_index=right_index, sort=sort, suffixes=suffixes, copy=copy,
+                    indicator=indicator,
                     validate=validate), tasks, workers_queue, n_cpu=n_cpu, disable=disable_pr_bar, show_vmem=show_vmem,
             total=total, executor='threads', desc='MERGE'
         )
