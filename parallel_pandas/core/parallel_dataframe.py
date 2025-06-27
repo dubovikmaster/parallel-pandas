@@ -77,7 +77,8 @@ def parallelize_chunk_apply(n_cpu=None, disable_pr_bar=False, show_vmem=False, s
         workers_queue = Manager().Queue()
         split_size = get_split_size(n_cpu, split_factor)
         if split_by_col:
-            idx_split = np.array_split(data[split_by_col].unique(), split_size)
+            t = data[split_by_col].unique()
+            idx_split = np.array_split(t, min(split_size, len(t)))
             group = data.groupby(split_by_col)
             tasks = (pd.concat([group.get_group(j) for j in i], copy=False) for i in idx_split)
         else:
@@ -568,7 +569,7 @@ def do_merge(df, workers_queue, right, **kwargs):
 
 def parallelize_merge(n_cpu=None, disable_pr_bar=False, split_factor=1,
                       show_vmem=False):
-    @doc(DOC, func='mode')
+    @doc(DOC, func='merge')
     def p_merge(data,
                 right: pd.DataFrame | pd.Series,
                 how: str = "inner",

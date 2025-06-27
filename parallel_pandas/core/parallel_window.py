@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from functools import partial
 from multiprocessing import cpu_count, Manager
+
+import numpy as np
 import pandas as pd
 from pandas.util._decorators import doc
 import dill
@@ -62,11 +64,10 @@ class ParallelRolling:
             axis = 1
         return min(self.n_cpu * self.split_factor, data.obj.shape[1 - axis])
 
-    def _data_reduce(self, result, data):
-        axis, offset = self._get_axis_and_offset(data)
+    def _data_reduce(self, result, axis, offset):
         if offset:
             result = [result[0]] + [s[offset:] for s in result[1:]]
-            return pd.concat(result, axis=1 - axis, ignore_index=True)
+            return pd.concat(result, axis=1 - axis, ignore_index=False)
         return pd.concat(result, axis=1 - axis)
 
     @staticmethod
@@ -101,7 +102,11 @@ class ParallelRolling:
                     else:
                         data.obj = data.obj[[i for i in func.keys()]]
             args = (func,)
-        tasks = self._get_split_data(data)
+        axis, offset = self._get_axis_and_offset(data)
+        if not isinstance(offset, (float, int)):
+            tasks, cut_times = self._get_split_data(data)
+        else:
+            tasks = self._get_split_data(data)
         total = self._get_total_tasks(data)
         result = progress_imap(
             partial(self.do_method, workers_queue=workers_queue, args=args, kwargs=kwargs, name=name,
@@ -109,7 +114,13 @@ class ParallelRolling:
             tasks, workers_queue, n_cpu=self.n_cpu, disable=self.disable_pr_bar, show_vmem=self.show_vmem,
             total=total, desc=name.upper(), executor=executor,
         )
-        return self._data_reduce(result, data)
+        if not isinstance(offset, (float, int)):
+            result_ = list()
+            for chunk, cut_time in zip(result, cut_times):
+                trimmed = chunk.loc[cut_time:]
+                result_.append(trimmed)
+            return pd.concat(result_, axis=1 - axis)
+        return self._data_reduce(result, axis, offset)
 
     def do_parallel(self, name):
         if name == 'mean':

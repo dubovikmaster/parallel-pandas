@@ -13,6 +13,37 @@ import numpy as np
 import time
 
 
+def get_time_chunks(data, window, n_chunks):
+
+    data = data.sort_index()
+    if isinstance(window, str):
+        window = pd.Timedelta(window)
+
+    idx = data.index
+    cuts = np.linspace(0, len(idx), n_chunks + 1, dtype=int)
+
+    chunks = []
+    cut_times = []
+
+    for i in range(n_chunks):
+        start, end = cuts[i], cuts[i + 1]
+
+        # Для первого чанка не делаем перекрытие
+        if i == 0:
+            overlap_start = start
+        else:
+            overlap_start_time = idx[start] - window
+            overlap_start = idx.searchsorted(overlap_start_time, side="right")
+
+        chunk = data.iloc[overlap_start:end]
+        cut_time = idx[start]  # официальная граница начала чанка
+
+        chunks.append(chunk)
+        cut_times.append(cut_time)
+
+    return chunks, cut_times
+
+
 def time_of_function(function):
     def wrapped(*args, **kwargs):
         start_time = time.time()
@@ -57,6 +88,8 @@ def iterate_by_df(df, idx, axis, offset):
 
 
 def get_split_data(df, axis, split_size, offset=0):
+    if isinstance(offset, (str, pd.Timedelta, pd.offsets.BaseOffset)):
+        return get_time_chunks(df, window=offset, n_chunks=split_size)
     split_size = min(split_size, df.shape[1 - axis])
     idx_split = np.array_split(np.arange(df.shape[1 - axis]), split_size)
     tasks = iterate_by_df(df, idx_split, axis, offset)
