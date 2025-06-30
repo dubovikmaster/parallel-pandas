@@ -36,9 +36,9 @@ def _prepare_result(data):
 
 def _get_group_iterator(data, include_groups):
     if MAJOR_PANDAS_VERSION == 2 and MINOR_PANDAS_VERSION >= 2 and not include_groups:
-        return iter(data.grouper._get_splitter(data._obj_with_exclusions, data.axis))
+        return iter(data._grouper._get_splitter(data._obj_with_exclusions, data.axis))
     else:
-        return iter(data.grouper._get_splitter(data._selected_obj, data.axis))
+        return iter(data._grouper._get_splitter(data._selected_obj, data.axis))
 
 
 def parallelize_groupby_apply(n_cpu=None, disable_pr_bar=False):
