@@ -1,0 +1,27 @@
+[build-system]
+requires = ["flit_core >=3.2,<4", "wheel"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "parallel-pandas"
+version = "0.7"
+description = "Parallel processing on pandas with progress bars"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [
+  { name = "Dubovik Pavel", email = "geometryk@gmail.com" }
+]
+requires-python = ">=3.7"
+dependencies = [
+  "pandas>=1.4.0",
+  "dill",
+  "psutil",
+  "tqdm",
+  "scipy"
+]
+
+[project.optional-dependencies]
+numba = ["numba"]
+
+[project.urls]
+Homepage = "https://github.com/dubovikmaster/parallel-pandas"
