@@ -75,7 +75,7 @@ class ParallelRolling:
     @staticmethod
     def _func_serialize(func):
         if callable(func):
-            return dill.dumps(func), True
+            return dill.dumps(func, recurse=True), True
         return func, False
 
     @staticmethod
