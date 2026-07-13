@@ -1,4 +1,6 @@
 import atexit
+import io
+import logging
 import time
 from itertools import count
 
@@ -12,6 +14,39 @@ from psutil._common import bytes2human
 
 
 _MANAGER = None
+
+# Where the progress bars write. ``None`` means the tqdm default (stderr).
+# Can be any file-like object, e.g. a TqdmToLogger to redirect the bar to a logger.
+_PROGRESS_FILE = None
+
+
+def set_progress_bar_file(file):
+    """Set the file-like object the progress bars write to (None = tqdm default)."""
+    global _PROGRESS_FILE
+    _PROGRESS_FILE = file
+
+
+class TqdmToLogger(io.StringIO):
+    """File-like object that redirects tqdm progress-bar output to a logging.Logger.
+
+    tqdm writes the rendered bar and flushes on every refresh; each flush is emitted
+    as one log record, so the bar shows up in the configured logging handlers
+    (files, JSON logs, non-tty environments, ...) instead of the terminal.
+    """
+
+    def __init__(self, logger, level=logging.INFO):
+        super().__init__()
+        self.logger = logger
+        self.level = level
+        self._buf = ''
+
+    def write(self, buf):
+        self._buf = buf.strip('\r\n\t ')
+        return len(buf)
+
+    def flush(self):
+        if self._buf:
+            self.logger.log(self.level, self._buf)
 
 
 def _shutdown_manager():
@@ -92,13 +127,14 @@ def progress_udf_wrapper(func, workers_queue, total):
 
 
 def _process_status(bar_size, disable, show_vmem, desc, q):
-    bar = ProgressBar(total=bar_size, disable=disable, desc=desc + ' DONE')
+    pbar_file = _PROGRESS_FILE
+    bar = ProgressBar(total=bar_size, disable=disable, desc=desc + ' DONE', file=pbar_file)
     vmem = virtual_memory()
     if show_vmem:
         vmem_pbar = MemoryProgressBar(range(100),
                                       bar_format="{desc}: {percentage:.1f}%|{bar}|  " + bytes2human(vmem.total),
                                       initial=vmem.percent, colour='green', position=1, desc='VMEM USAGE',
-                                      disable=disable,
+                                      disable=disable, file=pbar_file,
                                       )
         vmem_pbar.refresh()
     while True:

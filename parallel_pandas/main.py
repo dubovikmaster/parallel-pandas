@@ -1,6 +1,9 @@
+import logging
+
 import pandas as pd
 
 from .core.tools import get_pandas_version
+from .core.progress_imap import TqdmToLogger, set_progress_bar_file
 
 from .core import series_parallelize_apply
 from .core import series_parallelize_map
@@ -46,7 +49,17 @@ PD_VERSION = MAJOR*10 + MINOR
 
 class ParallelPandas:
     @staticmethod
-    def initialize(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
+    def initialize(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1,
+                   logger=None, logger_level=logging.INFO, pbar_file=None):
+        # Route the progress bars: an explicit file-like wins, otherwise a logging.Logger
+        # is wrapped so the bars are emitted as log records, otherwise the tqdm default.
+        if pbar_file is not None:
+            set_progress_bar_file(pbar_file)
+        elif logger is not None:
+            set_progress_bar_file(TqdmToLogger(logger, level=logger_level))
+        else:
+            set_progress_bar_file(None)
+
         # add parallel methods to Series
         pd.Series.p_apply = series_parallelize_apply(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar, show_vmem=show_vmem,
                                                      split_factor=split_factor)
