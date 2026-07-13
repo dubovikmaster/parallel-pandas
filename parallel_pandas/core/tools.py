@@ -1,16 +1,8 @@
-import _thread as thread
-import threading
 from multiprocessing import cpu_count
-from functools import wraps
 from concurrent.futures import ThreadPoolExecutor
-
-import platform
-import signal
-import os
 
 import pandas as pd
 import numpy as np
-import time
 
 
 def get_time_chunks(data, window, n_chunks):
@@ -42,16 +34,6 @@ def get_time_chunks(data, window, n_chunks):
         cut_times.append(cut_time)
 
     return chunks, cut_times
-
-
-def time_of_function(function):
-    def wrapped(*args, **kwargs):
-        start_time = time.time()
-        res = function(*args, **kwargs)
-        print('Time of function {} is {:.3f} s.'.format(function.__name__, time.time() - start_time))
-        return res
-
-    return wrapped
 
 
 def get_pandas_version():
@@ -100,36 +82,3 @@ def get_split_data(df, axis, split_size, offset=0):
     idx_split = np.array_split(np.arange(df.shape[1 - axis]), split_size)
     tasks = iterate_by_df(df, idx_split, axis, offset)
     return tasks
-
-
-def stop_function():
-    if platform.system() == 'Windows':
-        thread.interrupt_main()
-    else:
-        os.kill(os.getpid(), signal.SIGINT)
-
-
-def stopit_after_timeout(s, raise_exception=True):
-    def actual_decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            timer = threading.Timer(s, stop_function)
-            try:
-                timer.start()
-                result = func(*args, **kwargs)
-            except KeyboardInterrupt:
-                msg = f'function \"{func.__name__}\" took longer than {s} s.'
-                if raise_exception:
-                    raise TimeoutError(msg)
-                result = msg
-            finally:
-                timer.cancel()
-            return result
-
-        return wrapper
-
-    return actual_decorator
-
-
-def _wrapped_func(func, s, raise_exception, *args, **kwargs):
-    return stopit_after_timeout(s, raise_exception=raise_exception)(func)(*args, **kwargs)

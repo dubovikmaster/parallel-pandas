@@ -1,7 +1,7 @@
 from functools import partial
-from multiprocessing import Manager
 
 from .progress_imap import progress_imap
+from .progress_imap import get_workers_queue
 from pandas.core.groupby.ops import _is_indexed_like
 from pandas.util._decorators import doc
 
@@ -62,7 +62,7 @@ def _get_group_iterator(data, include_groups):
 def parallelize_groupby_apply(n_cpu=None, disable_pr_bar=False):
     @doc(DOC, func='apply')
     def p_apply(data, func, executor='processes', include_groups=True, args=(), **kwargs):
-        workers_queue = Manager().Queue()
+        workers_queue = get_workers_queue()
         gr_count = data.ngroups
         iterator = _get_group_iterator(data, include_groups)
         dill_func = dill.dumps(func)
