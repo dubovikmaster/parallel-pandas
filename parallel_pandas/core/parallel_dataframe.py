@@ -48,7 +48,7 @@ def parallelize_apply(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_f
         workers_queue = get_workers_queue()
         split_size = get_split_size(n_cpu, split_factor)
         tasks = get_split_data(data, axis, split_size)
-        dill_func = dill.dumps(func)
+        dill_func = dill.dumps(func, recurse=True)
         result = progress_imap(partial(_do_apply, axis=axis, raw=raw, result_type=result_type, dill_func=dill_func,
                                        workers_queue=workers_queue, args=args, kwargs=kwargs),
                                tasks, workers_queue, n_cpu=n_cpu, total=data.shape[1 - axis], disable=disable_pr_bar,
@@ -83,7 +83,7 @@ def parallelize_chunk_apply(n_cpu=None, disable_pr_bar=False, show_vmem=False, s
             tasks = (pd.concat([group.get_group(j) for j in i], copy=False) for i in idx_split)
         else:
             tasks = get_split_data(data, 1 - axis, split_size)
-        dill_func = dill.dumps(func)
+        dill_func = dill.dumps(func, recurse=True)
         result = progress_imap(partial(_do_chunk_apply, dill_func=dill_func,
                                        workers_queue=workers_queue, args=args, kwargs=kwargs),
                                tasks, workers_queue, n_cpu=n_cpu, total=split_size, disable=disable_pr_bar,
@@ -165,7 +165,7 @@ def parallelize_pivot_table(n_cpu=None, disable_pr_bar=False, show_vmem=False, s
         # fill_value / sort are applied once on the combined frame, not per chunk:
         # a cross-chunk missing (index, column) cell is only introduced by the concat.
         chunk_kwargs = dict(pivot_kwargs, fill_value=None, sort=False)
-        dill_kwargs = dill.dumps(chunk_kwargs)
+        dill_kwargs = dill.dumps(chunk_kwargs, recurse=True)
         result = progress_imap(partial(_do_pivot_table, dill_kwargs=dill_kwargs, workers_queue=workers_queue),
                                tasks, workers_queue, n_cpu=n_cpu, total=split_size, disable=disable_pr_bar,
                                show_vmem=show_vmem, executor=executor, desc='PIVOT_TABLE')
@@ -346,7 +346,7 @@ def parallelize_aggregate(n_cpu=None, disable_pr_bar=False, show_vmem=False, spl
         dilled_func = False
         if callable(func):
             dilled_func = True
-            func = dill.dumps(func)
+            func = dill.dumps(func, recurse=True)
         result = progress_imap(partial(_do_aggregate, axis=axis, func=func,
                                        workers_queue=workers_queue, dilled_func=dilled_func, args=args, kwargs=kwargs),
                                tasks, workers_queue, n_cpu=n_cpu, total=split_size, disable=disable_pr_bar,
@@ -396,7 +396,7 @@ def parallelize_applymap(n_cpu=None, disable_pr_bar=False, show_vmem=False, spli
         workers_queue = get_workers_queue()
         split_size = get_split_size(n_cpu, split_factor)
         tasks = get_split_data(data, 1, split_size)
-        dill_func = dill.dumps(func)
+        dill_func = dill.dumps(func, recurse=True)
         result = progress_imap(
             partial(do_applymap, workers_queue=workers_queue, dill_func=dill_func, na_action=na_action,
                     kwargs=kwargs), tasks, workers_queue, n_cpu=n_cpu, disable=disable_pr_bar, show_vmem=show_vmem,
@@ -418,7 +418,7 @@ def parallelize_map(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_fac
         workers_queue = get_workers_queue()
         split_size = get_split_size(n_cpu, split_factor)
         tasks = get_split_data(data, 1, split_size)
-        dill_func = dill.dumps(func)
+        dill_func = dill.dumps(func, recurse=True)
         result = progress_imap(
             partial(do_map, workers_queue=workers_queue, dill_func=dill_func, na_action=na_action,
                     kwargs=kwargs), tasks, workers_queue, n_cpu=n_cpu, disable=disable_pr_bar, show_vmem=show_vmem,

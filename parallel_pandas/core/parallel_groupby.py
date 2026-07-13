@@ -65,7 +65,7 @@ def parallelize_groupby_apply(n_cpu=None, disable_pr_bar=False):
         workers_queue = get_workers_queue()
         gr_count = data.ngroups
         iterator = _get_group_iterator(data, include_groups)
-        dill_func = dill.dumps(func)
+        dill_func = dill.dumps(func, recurse=True)
         result = progress_imap(
             partial(_do_group_apply, dill_func=dill_func, workers_queue=workers_queue, args=args, kwargs=kwargs),
             iterator, workers_queue, total=gr_count, n_cpu=n_cpu, disable=disable_pr_bar, executor=executor,

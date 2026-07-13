@@ -33,7 +33,7 @@ def series_parallelize_apply(n_cpu=None, disable_pr_bar=False, show_vmem=False, 
         workers_queue = get_workers_queue()
         split_size = get_split_size(n_cpu, split_factor)
         tasks = get_split_data(data, 1, split_size)
-        dill_func = dill.dumps(func)
+        dill_func = dill.dumps(func, recurse=True)
         result = progress_imap(partial(_do_apply, convert_dtype=convert_dtype, dill_func=dill_func,
                                        workers_queue=workers_queue, args=args, kwargs=kwargs),
                                tasks, workers_queue, n_cpu=n_cpu, total=data.shape[0], disable=disable_pr_bar,
@@ -57,7 +57,7 @@ def series_parallelize_map(n_cpu=None, disable_pr_bar=False, show_vmem=False, sp
         workers_queue = get_workers_queue()
         split_size = get_split_size(n_cpu, split_factor)
         tasks = get_split_data(data, 1, split_size)
-        dill_arg = dill.dumps(arg)
+        dill_arg = dill.dumps(arg, recurse=True)
         result = progress_imap(partial(_do_map, dill_arg=dill_arg,
                                        workers_queue=workers_queue, na_action=na_action),
                                tasks, workers_queue, n_cpu=n_cpu, total=split_size, disable=disable_pr_bar,
