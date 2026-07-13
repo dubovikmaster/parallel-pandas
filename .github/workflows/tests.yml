@@ -1,0 +1,86 @@
+name: tests
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: py${{ matrix.python }} / pandas ${{ matrix.pandas }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python: "3.9"
+            pandas: "1.5.3"
+            numpy: "<2"
+          - python: "3.10"
+            pandas: "2.0.3"
+            numpy: "<2"
+          - python: "3.11"
+            pandas: "2.2.3"
+          - python: "3.12"
+            pandas: "2.2.3"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install package and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ".[test]"
+          pip install "pandas==${{ matrix.pandas }}"
+          if [ -n "${{ matrix.numpy }}" ]; then pip install "numpy${{ matrix.numpy }}"; fi
+
+      - name: Show environment
+        run: pip list
+
+      - name: Run tests
+        run: pytest tests/ -q
+
+  # Weighted-window numba backend is optional; verify it separately.
+  test-numba:
+    name: py3.11 / pandas 2.2.3 / numba
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install package with numba extra
+        run: |
+          python -m pip install --upgrade pip
+          pip install ".[test,numba]"
+          pip install "pandas==2.2.3"
+      - name: Run tests
+        run: pytest tests/ -q
+
+  # pandas 3.0 is not officially supported yet; track it without blocking CI.
+  test-future:
+    name: py3.12 / pandas latest (allowed to fail)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package with newest pandas
+        run: |
+          python -m pip install --upgrade pip
+          pip install ".[test]"
+          pip install --upgrade pandas
+      - name: Run tests
+        run: pytest tests/ -q

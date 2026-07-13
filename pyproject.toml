@@ -22,6 +22,7 @@ dependencies = [
 
 [project.optional-dependencies]
 numba = ["numba"]
+test = ["pytest"]
 
 [project.urls]
 Homepage = "https://github.com/dubovikmaster/parallel-pandas"
