@@ -49,6 +49,7 @@ When initializing parallel-pandas you can specify the following options:
 2. `split_factor` - Affects the number of chunks into which the DataFrame/Series is split according to the formula `chunks_number = split_factor*n_cpu` (default 1).
 3. `show_vmem` - Shows a progress bar with available RAM (default `False`)
 4. `disable_pr_bar` - Disable the progress bar for parallel tasks (default `False`)
+5. `logger` - A `logging.Logger` the progress bar is redirected to instead of the terminal (default `None`). Optionally set the level with `logger_level` (default `logging.INFO`). To write the bar to an arbitrary file-like object instead, pass `pbar_file`.
 
 For example
 
@@ -66,6 +67,19 @@ df = pd.DataFrame(np.random.random((1_000_000, 100)))
 ![](https://raw.githubusercontent.com/dubovikmaster/parallel-pandas/master/gifs/p_describe.gif)
 
 During initialization, we specified `split_factor=4` and `n_cpu = 16`, so the DataFrame will be split into 64 chunks (in the case of the `describe` method, axis = 1) and the progress bar shows the progress for each chunk
+
+### Redirecting the progress bar to a logger
+
+By default the progress bar is written to the terminal. In non-interactive environments (log files, JSON logs, schedulers) you can redirect it to a `logging.Logger` — each bar refresh is emitted as a log record:
+
+```python
+import logging
+from parallel_pandas import ParallelPandas
+
+logging.basicConfig(filename="progress.log", level=logging.INFO)
+ParallelPandas.initialize(logger=logging.getLogger("pp"))
+# df.p_apply(...) now writes the bar into progress.log instead of the terminal
+```
 
 You can parallelize any expression with pandas Dataframe. For example, let's do a z-score normalization of columns in a dataframe. Let's look at the execution time and memory consumption. Compare with synchronous execution and with Dask.DataFrame
 ```python
