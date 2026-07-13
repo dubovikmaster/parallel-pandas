@@ -59,6 +59,12 @@ def get_pandas_version():
     return int(major), int(minor)
 
 
+def get_obj_axis(obj, default=0):
+    # pandas >= 3 dropped the `axis` attribute on window/groupby objects;
+    # only axis=0 is supported there, so fall back to the default.
+    return getattr(obj, 'axis', default)
+
+
 def _rank(mat):
     return np.argsort(np.argsort(mat, axis=0), axis=0)
 

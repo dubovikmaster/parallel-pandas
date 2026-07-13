@@ -10,6 +10,7 @@ import dill
 from .progress_imap import progress_imap
 from .progress_imap import progress_udf_wrapper
 from .tools import get_split_data
+from .tools import get_obj_axis
 
 DOC = 'Parallel analogue of the {func} method\nSee pandas DataFrame docstring for more ' \
       'information\nhttps://pandas.pydata.org/docs/reference/window.html'
@@ -50,7 +51,7 @@ class ParallelRolling:
         axis = 1
         offset = data.window
         if isinstance(data.obj, pd.DataFrame):
-            axis = data.axis
+            axis = get_obj_axis(data)
             offset = 0
         return axis, offset
 
@@ -59,7 +60,7 @@ class ParallelRolling:
         return get_split_data(data.obj, axis, self.n_cpu * self.split_factor, offset=offset)
 
     def _get_total_tasks(self, data):
-        axis = data.axis
+        axis = get_obj_axis(data)
         if isinstance(data.obj, pd.Series):
             axis = 1
         return min(self.n_cpu * self.split_factor, data.obj.shape[1 - axis])
@@ -80,6 +81,8 @@ class ParallelRolling:
     def _get_attributes(data):
         attributes = {attribute: getattr(data, attribute) for attribute in data._attributes}
         attributes.pop("_grouper", None)
+        # `axis` is handled separately and was removed from window ctors in pandas 3.
+        attributes.pop("axis", None)
         if attributes.get('win_type') == 'freq':
             attributes['win_type'] = None
         return attributes
@@ -327,7 +330,7 @@ class ParallelExpanding(ParallelRolling):
     @staticmethod
     def _get_axis_and_offset(data):
         if isinstance(data.obj, pd.DataFrame):
-            axis = data.axis
+            axis = get_obj_axis(data)
             offset = 0
         else:
             raise NotImplementedError('Parallel methods for Series objects are not implemented.')
@@ -343,7 +346,7 @@ class ParallelEWM(ParallelRolling):
     @staticmethod
     def _get_axis_and_offset(data):
         if isinstance(data.obj, pd.DataFrame):
-            axis = data.axis
+            axis = get_obj_axis(data)
             offset = 0
         else:
             raise NotImplementedError('Parallel methods for Series objects are not implemented.')

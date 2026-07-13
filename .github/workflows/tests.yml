@@ -28,6 +28,8 @@ jobs:
             pandas: "2.2.3"
           - python: "3.12"
             pandas: "2.2.3"
+          - python: "3.12"
+            pandas: "3.0.3"
 
     steps:
       - uses: actions/checkout@v4

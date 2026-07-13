@@ -17,6 +17,9 @@ DOC = 'Parallel analogue of the GroupBy.{func} method\nSee pandas GroupBy docstr
 
 MAJOR_PANDAS_VERSION, MINOR_PANDAS_VERSION = get_pandas_version()
 
+# pandas 3 dropped the trailing `axis` argument of _is_indexed_like.
+_IS_INDEXED_LIKE_NARGS = 2 if MAJOR_PANDAS_VERSION >= 3 else 3
+
 
 def _do_group_apply(data, dill_func, workers_queue, args, kwargs):
     func = dill.loads(dill_func)
@@ -28,13 +31,18 @@ def _prepare_result(data):
     mutated = False
     result = list()
     for d in data:
-        if not mutated and not _is_indexed_like(*d):
+        if not mutated and not _is_indexed_like(*d[:_IS_INDEXED_LIKE_NARGS]):
             mutated = True
         result.append(d[0])
     return result, mutated
 
 
 def _get_group_iterator(data, include_groups):
+    if MAJOR_PANDAS_VERSION >= 3:
+        # pandas 3 removed the `axis` argument from _get_splitter and the
+        # `axis` attribute from the groupby object; only axis=0 exists.
+        obj = data._selected_obj if include_groups else data._obj_with_exclusions
+        return iter(data._grouper._get_splitter(obj))
     if MAJOR_PANDAS_VERSION == 2 and MINOR_PANDAS_VERSION >= 2 and not include_groups:
         return iter(data._grouper._get_splitter(data._obj_with_exclusions, data.axis))
     else:
