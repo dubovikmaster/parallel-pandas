@@ -3,7 +3,7 @@ import logging
 import pandas as pd
 
 from .core.tools import get_pandas_version
-from .core.progress_imap import TqdmToLogger, set_progress_bar_file
+from .core.progress_imap import TqdmToLogger, set_progress_bar_file, set_reuse_pool
 
 from .core import series_parallelize_apply
 from .core import series_parallelize_map
@@ -50,7 +50,11 @@ PD_VERSION = MAJOR*10 + MINOR
 class ParallelPandas:
     @staticmethod
     def initialize(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1,
-                   logger=None, logger_level=logging.INFO, pbar_file=None):
+                   logger=None, logger_level=logging.INFO, pbar_file=None, reuse_pool=True):
+        # Keep worker pools warm across calls (removes the per-call process-spawn
+        # overhead). Set reuse_pool=False to restore per-call pool creation.
+        set_reuse_pool(reuse_pool)
+
         # Route the progress bars: an explicit file-like wins, otherwise a logging.Logger
         # is wrapped so the bars are emitted as log records, otherwise the tqdm default.
         if pbar_file is not None:

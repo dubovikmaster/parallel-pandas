@@ -15,6 +15,13 @@ from psutil._common import bytes2human
 
 _MANAGER = None
 
+# Cache of worker pools, keyed by (executor, n_cpu), so consecutive parallel
+# operations reuse the same warm workers instead of paying the spawn cost every
+# call. See ``_get_pool``/``set_reuse_pool``.
+_POOLS = {}
+_REUSE_POOL = True
+_POOLS_ATEXIT_REGISTERED = False
+
 # Where the progress bars write. ``None`` means the tqdm default (stderr).
 # Can be any file-like object, e.g. a TqdmToLogger to redirect the bar to a logger.
 _PROGRESS_FILE = None
@@ -54,6 +61,68 @@ def _shutdown_manager():
     if _MANAGER is not None:
         _MANAGER.shutdown()
         _MANAGER = None
+
+
+def _create_pool(executor, n_cpu, initializer, initargs):
+    if executor == 'threads':
+        return mp.pool.ThreadPool(n_cpu, initializer=initializer, initargs=initargs)
+    return mp.Pool(n_cpu, initializer=initializer, initargs=initargs)
+
+
+def _shutdown_pools():
+    global _POOLS
+    for pool in list(_POOLS.values()):
+        try:
+            pool.terminate()
+        except Exception:
+            pass
+    _POOLS = {}
+
+
+def _drop_pool(executor, n_cpu):
+    """Discard a (possibly broken) cached pool so the next call spawns a fresh one."""
+    pool = _POOLS.pop((executor, n_cpu), None)
+    if pool is not None:
+        try:
+            pool.terminate()
+        except Exception:
+            pass
+
+
+def set_reuse_pool(flag):
+    """Enable/disable reusing worker pools across parallel operations.
+
+    When enabled (default) the worker pool for a given ``(executor, n_cpu)`` is
+    created once and kept warm for the lifetime of the process, which removes the
+    per-call process-spawn overhead. Disabling it restores the old behaviour of
+    creating and tearing down a pool on every call and closes any warm pools.
+    """
+    global _REUSE_POOL
+    _REUSE_POOL = bool(flag)
+    if not _REUSE_POOL:
+        _shutdown_pools()
+
+
+def _get_pool(executor, n_cpu, initializer, initargs):
+    """Return ``(pool, reused)``.
+
+    Only the common case (no custom ``initializer``) is cached, because a cached
+    pool runs its initializer exactly once at creation and cannot honour a
+    different one on a later call. ``reused=True`` means the caller must NOT close
+    the pool afterwards.
+    """
+    global _POOLS_ATEXIT_REGISTERED
+    if not _REUSE_POOL or initializer is not None:
+        return _create_pool(executor, n_cpu, initializer, initargs), False
+    key = (executor, n_cpu)
+    pool = _POOLS.get(key)
+    if pool is None:
+        pool = _create_pool(executor, n_cpu, None, initargs)
+        _POOLS[key] = pool
+        if not _POOLS_ATEXIT_REGISTERED:
+            atexit.register(_shutdown_pools)
+            _POOLS_ATEXIT_REGISTERED = True
+    return pool, True
 
 
 def get_workers_queue():
@@ -158,12 +227,19 @@ def _do_parallel(func, tasks, initializer, initargs, n_cpu, total, disable, show
         n_cpu = mp.cpu_count()
     thread_ = Thread(target=_process_status, args=(total, disable, show_vmem, desc, q))
     thread_.start()
-    if executor == 'threads':
-        exc_pool = mp.pool.ThreadPool(n_cpu, initializer=initializer, initargs=initargs)
-    else:
-        exc_pool = mp.Pool(n_cpu, initializer=initializer, initargs=initargs)
-    with exc_pool as p:
-        result = list(p.imap(func, tasks))
+    pool, reused = _get_pool(executor, n_cpu, initializer, initargs)
+    try:
+        result = list(pool.imap(func, tasks))
+    except BaseException:
+        # A reused pool may be left in a broken state (e.g. a worker died), so drop
+        # it to guarantee the next call starts from a healthy pool.
+        if reused:
+            _drop_pool(executor, n_cpu)
+        raise
+    finally:
+        if not reused:
+            pool.close()
+            pool.join()
     q.put((None, None))
     thread_.join()
     return result
