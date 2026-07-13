@@ -39,6 +39,20 @@ res = df.p_quantile(q=[.25, .5, .95], axis=1)
 
 As you can see the `p_quantile` method is **5 times faster**!
 
+### The `.parallel` accessor
+
+Every `p_*` method is also reachable through the `.parallel` accessor, so you can
+drop the prefix and write the call the way you would spell the pandas method:
+
+```python
+df.parallel.quantile(q=[.25, .5, .95], axis=1)   # same as df.p_quantile(...)
+df.parallel.mean()                                # same as df.p_mean()
+df.parallel.apply(my_func, axis=1)                # same as df.p_apply(my_func, axis=1)
+```
+
+The accessor simply forwards `df.parallel.<name>()` to `df.p_<name>()`, so it
+automatically exposes whatever `ParallelPandas.initialize` registered.
+
 ## Usage
 
 Under the hood, **parallel-pandas** works very simply. The Dataframe or Series is split into chunks along the first or second axis. Then these chunks are passed to a pool of processes or threads where the desired method is executed on each part. At the end, the parts are concatenated to get the final result.

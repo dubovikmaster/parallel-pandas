@@ -4,6 +4,7 @@ import pandas as pd
 
 from .core.tools import get_pandas_version
 from .core.progress_imap import TqdmToLogger, set_progress_bar_file, set_reuse_pool
+from .core.accessor import register_parallel_accessor
 
 from .core import series_parallelize_apply
 from .core import series_parallelize_map
@@ -46,6 +47,10 @@ MAJOR, MINOR = get_pandas_version()
 
 PD_VERSION = MAJOR*10 + MINOR
 
+# Register the ``.parallel`` accessor at import time so ``df.parallel`` is always
+# available (it reports a helpful error until ParallelPandas.initialize is run).
+register_parallel_accessor()
+
 
 class ParallelPandas:
     @staticmethod
@@ -54,6 +59,9 @@ class ParallelPandas:
         # Keep worker pools warm across calls (removes the per-call process-spawn
         # overhead). Set reuse_pool=False to restore per-call pool creation.
         set_reuse_pool(reuse_pool)
+
+        # Expose the parallel methods under the ``.parallel`` accessor as well.
+        register_parallel_accessor()
 
         # Route the progress bars: an explicit file-like wins, otherwise a logging.Logger
         # is wrapped so the bars are emitted as log records, otherwise the tqdm default.
