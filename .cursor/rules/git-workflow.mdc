@@ -1,0 +1,35 @@
+---
+description: Git workflow — ship all changes via feature branches and PRs, never push to master
+alwaysApply: true
+---
+
+# Git Workflow
+
+`master` is protected: direct pushes are rejected (even for admins) and merges
+require green CI. **Never commit or push directly to `master`.**
+
+For every change (feature, fix, docs, chore):
+
+1. Branch off the latest `master`:
+
+```bash
+git checkout master && git pull
+git checkout -b <type>/<short-name>   # e.g. feature/p-merge, fix/ewm-var
+```
+
+2. Commit on the branch, then push it:
+
+```bash
+git push -u origin <type>/<short-name>
+```
+
+3. Open a Pull Request into `master` and let CI run the pandas version matrix.
+   Only merge once all required checks are green.
+
+## Rules for the agent
+
+- Do NOT run `git push origin master` or commit on top of `master`.
+- Create commits only on feature branches.
+- When the user asks to "ship"/"push" work, create a branch + PR by default.
+- If the user explicitly requests an emergency direct push, warn that it needs
+  `enforce_admins` temporarily disabled and ask for confirmation first.
