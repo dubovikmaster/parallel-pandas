@@ -64,7 +64,7 @@ class ParallelRolling:
             axis = 1
         return min(self.n_cpu * self.split_factor, data.obj.shape[1 - axis])
 
-    def _data_reduce(self, result, axis, offset):
+    def _data_reduce(self, result, data, axis, offset):
         if offset:
             result = [result[0]] + [s[offset:] for s in result[1:]]
             return pd.concat(result, axis=1 - axis, ignore_index=False)
@@ -80,7 +80,7 @@ class ParallelRolling:
     def _get_attributes(data):
         attributes = {attribute: getattr(data, attribute) for attribute in data._attributes}
         attributes.pop("_grouper", None)
-        if attributes['win_type'] == 'freq':
+        if attributes.get('win_type') == 'freq':
             attributes['win_type'] = None
         return attributes
 
@@ -120,7 +120,7 @@ class ParallelRolling:
                 trimmed = chunk.loc[cut_time:]
                 result_.append(trimmed)
             return pd.concat(result_, axis=1 - axis)
-        return self._data_reduce(result, axis, offset)
+        return self._data_reduce(result, data, axis, offset)
 
     def do_parallel(self, name):
         if name == 'mean':
@@ -243,12 +243,6 @@ class ParallelRolling:
 
 
 class ParallelWindow(ParallelRolling):
-    @staticmethod
-    def _get_attributes(data):
-        attributes = {attribute: getattr(data, attribute) for attribute in data._attributes}
-        attributes.pop("_grouper", None)
-        return attributes
-
     def do_parallel(self, name):
         if name == 'mean':
             @doc(DOC, func=name)
@@ -314,7 +308,7 @@ class ParallelGroupbyMixin(ParallelRolling):
     def _get_total_tasks(self, data):
         return data._grouper.ngroups
 
-    def _data_reduce(self, result, data):
+    def _data_reduce(self, result, data, axis, offset):
         out = pd.concat(result)
         out.rename_axis(data._grouper.names + [data._grouper.axis.name], inplace=True)
         return out
@@ -358,6 +352,16 @@ class ParallelEWM(ParallelRolling):
     @staticmethod
     def _get_method(df, name, kwargs):
         return getattr(df.ewm(**kwargs), name)
+
+    def do_parallel(self, name):
+        # EWM std/var take `bias`, not `ddof` like the rolling/expanding variants.
+        if name in ('std', 'var'):
+            @doc(DOC, func=name)
+            def p_ewm_ddof(data, executor='threads', bias=False, **kwargs):
+                return self.parallelize_method(data, name, executor, bias=bias, **kwargs)
+
+            return p_ewm_ddof
+        return super().do_parallel(name)
 
 
 class ParallelEWMGroupby(ParallelGroupbyMixin, ParallelEWM):
