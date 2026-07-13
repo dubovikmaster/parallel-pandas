@@ -752,49 +752,13 @@ class ParallelizeStatFunc:
         return pd.concat(result)
 
     def do_parallel(self, name):
-        if name == 'min':
-            @doc(DOC, func=name)
-            def p_min(data, axis=0, skipna=True, level=None, numeric_only=None, **kwargs):
-                return self._parallel_stat_func(data, name=name, axis=axis, skipna=skipna,
-                                                level=level, numeric_only=numeric_only, kwargs=kwargs)
+        @doc(DOC, func=name)
+        def p_func(data, axis=0, skipna=True, level=None, numeric_only=None, **kwargs):
+            return self._parallel_stat_func(data, name=name, axis=axis, skipna=skipna,
+                                            level=level, numeric_only=numeric_only, kwargs=kwargs)
 
-            return p_min
-        if name == 'max':
-            @doc(DOC, func=name)
-            def p_max(data, axis=0, skipna=True, level=None, numeric_only=None, **kwargs):
-                return self._parallel_stat_func(data, name=name, axis=axis, skipna=skipna,
-                                                level=level, numeric_only=numeric_only, kwargs=kwargs)
-
-            return p_max
-        if name == 'mean':
-            @doc(DOC, func=name)
-            def p_mean(data, axis=0, skipna=True, level=None, numeric_only=None, **kwargs):
-                return self._parallel_stat_func(data, name=name, axis=axis, skipna=skipna,
-                                                level=level, numeric_only=numeric_only, kwargs=kwargs)
-
-            return p_mean
-        if name == 'median':
-            @doc(DOC, func=name)
-            def p_median(data, axis=0, skipna=True, level=None, numeric_only=None, **kwargs):
-                return self._parallel_stat_func(data, name=name, axis=axis, skipna=skipna,
-                                                level=level, numeric_only=numeric_only, kwargs=kwargs)
-
-            return p_median
-        if name == 'kurt':
-            @doc(DOC, func=name)
-            def p_kurt(data, axis=0, skipna=True, level=None, numeric_only=None, **kwargs):
-                return self._parallel_stat_func(data, name=name, axis=axis, skipna=skipna,
-                                                level=level, numeric_only=numeric_only, kwargs=kwargs)
-
-            return p_kurt
-
-        if name == 'skew':
-            @doc(DOC, func=name)
-            def p_skew(data, axis=0, skipna=True, level=None, numeric_only=None, **kwargs):
-                return self._parallel_stat_func(data, name=name, axis=axis, skipna=skipna,
-                                                level=level, numeric_only=numeric_only, kwargs=kwargs)
-
-            return p_skew
+        p_func.__name__ = p_func.__qualname__ = f'p_{name}'
+        return p_func
 
 
 class ParallelizeStatFuncDdof:
@@ -836,30 +800,14 @@ class ParallelizeStatFuncDdof:
         return pd.concat(result)
 
     def do_parallel(self, name):
-        if name == 'var':
-            @doc(DOC, func=name)
-            def p_var(data, axis=0, skipna=True, level=None, ddof=1, numeric_only=None, **kwargs):
-                return self._parallel_stat_func_ddof(data, name=name, axis=axis,
-                                                     skipna=skipna, level=level, ddof=ddof, numeric_only=numeric_only,
-                                                     kwargs=kwargs)
+        @doc(DOC, func=name)
+        def p_func(data, axis=0, skipna=True, level=None, ddof=1, numeric_only=None, **kwargs):
+            return self._parallel_stat_func_ddof(data, name=name, axis=axis,
+                                                 skipna=skipna, level=level, ddof=ddof, numeric_only=numeric_only,
+                                                 kwargs=kwargs)
 
-            return p_var
-        if name == 'std':
-            @doc(DOC, func=name)
-            def p_std(data, axis=0, skipna=True, level=None, ddof=1, numeric_only=None, **kwargs):
-                return self._parallel_stat_func_ddof(data, name=name, axis=axis,
-                                                     skipna=skipna, level=level, ddof=ddof, numeric_only=numeric_only,
-                                                     kwargs=kwargs)
-
-            return p_std
-        if name == 'sem':
-            @doc(DOC, func=name)
-            def p_sem(data, axis=0, skipna=True, level=None, ddof=1, numeric_only=None, **kwargs):
-                return self._parallel_stat_func_ddof(data, name=name, axis=axis,
-                                                     skipna=skipna, level=level, ddof=ddof, numeric_only=numeric_only,
-                                                     kwargs=kwargs)
-
-            return p_sem
+        p_func.__name__ = p_func.__qualname__ = f'p_{name}'
+        return p_func
 
 
 class ParallelizeMinCountStatFunc:
@@ -901,24 +849,15 @@ class ParallelizeMinCountStatFunc:
         return pd.concat(result)
 
     def do_parallel(self, name):
-        if name == 'sum':
-            @doc(DOC, func=name)
-            def p_sum(data, axis=0, skipna=True, level=None, numeric_only=None,
-                      min_count=0, **kwargs):
-                return self._parallel_min_count_stat_func(data, name=name, axis=axis,
-                                                          skipna=skipna, level=level, min_count=min_count,
-                                                          numeric_only=numeric_only, kwargs=kwargs)
+        @doc(DOC, func=name)
+        def p_func(data, axis=0, skipna=True, level=None, numeric_only=None,
+                   min_count=0, **kwargs):
+            return self._parallel_min_count_stat_func(data, name=name, axis=axis,
+                                                      skipna=skipna, level=level, min_count=min_count,
+                                                      numeric_only=numeric_only, kwargs=kwargs)
 
-            return p_sum
-        if name == 'prod':
-            @doc(DOC, func=name)
-            def p_prod(data, axis=0, skipna=True, level=None, numeric_only=None,
-                       min_count=0, **kwargs):
-                return self._parallel_min_count_stat_func(data, name=name, axis=axis,
-                                                          skipna=skipna, level=level, min_count=min_count,
-                                                          numeric_only=numeric_only, kwargs=kwargs)
-
-            return p_prod
+        p_func.__name__ = p_func.__qualname__ = f'p_{name}'
+        return p_func
 
 
 class ParallelizeAccumFunc:
@@ -967,34 +906,10 @@ class ParallelizeAccumFunc:
         return pd.concat(result, axis=1 - axis)
 
     def do_parallel(self, name):
-        if name == 'cumsum':
-            @doc(DOC, func=name)
-            def p_cumsum(data, axis=0, skipna=True, *args, **kwargs):
-                return self._parallel_accum_func(data, name=name, axis=axis,
-                                                 skipna=skipna, args=args, kwargs=kwargs)
+        @doc(DOC, func=name)
+        def p_func(data, axis=0, skipna=True, *args, **kwargs):
+            return self._parallel_accum_func(data, name=name, axis=axis,
+                                             skipna=skipna, args=args, kwargs=kwargs)
 
-            return p_cumsum
-
-        if name == 'cumprod':
-            @doc(DOC, func=name)
-            def p_cumprod(data, axis=0, skipna=True, *args, **kwargs):
-                return self._parallel_accum_func(data, name=name, axis=axis,
-                                                 skipna=skipna, args=args, kwargs=kwargs)
-
-            return p_cumprod
-
-        if name == 'cummin':
-            @doc(DOC, func=name)
-            def p_cummin(data, axis=0, skipna=True, *args, **kwargs):
-                return self._parallel_accum_func(data, name=name, axis=axis,
-                                                 skipna=skipna, args=args, kwargs=kwargs)
-
-            return p_cummin
-
-        if name == 'cummax':
-            @doc(DOC, func=name)
-            def p_cummax(data, axis=0, skipna=True, *args, **kwargs):
-                return self._parallel_accum_func(data, name=name, axis=axis,
-                                                 skipna=skipna, args=args, kwargs=kwargs)
-
-            return p_cummax
+        p_func.__name__ = p_func.__qualname__ = f'p_{name}'
+        return p_func
