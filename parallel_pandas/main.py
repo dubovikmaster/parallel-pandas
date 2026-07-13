@@ -6,6 +6,7 @@ from .core import series_parallelize_apply
 from .core import series_parallelize_map
 from .core import parallelize_apply
 from .core import parallelize_chunk_apply
+from .core import parallelize_pivot_table
 from .core import parallelize_replace
 from .core import ParallelizeStatFunc
 from .core import ParallelizeStatFuncDdof
@@ -152,6 +153,10 @@ class ParallelPandas:
         pd.DataFrame.chunk_apply = parallelize_chunk_apply(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
                                                            show_vmem=show_vmem,
                                                            split_factor=split_factor)
+
+        pd.DataFrame.p_pivot_table = parallelize_pivot_table(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
+                                                             show_vmem=show_vmem,
+                                                             split_factor=split_factor)
 
         pd.DataFrame.p_isin = parallelize_isin(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
                                                show_vmem=show_vmem,

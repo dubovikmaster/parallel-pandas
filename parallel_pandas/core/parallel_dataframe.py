@@ -96,6 +96,75 @@ def parallelize_chunk_apply(n_cpu=None, disable_pr_bar=False, show_vmem=False, s
     return chunk_apply
 
 
+def _do_pivot_table(data, dill_kwargs, workers_queue):
+    kwargs = dill.loads(dill_kwargs)
+
+    def foo():
+        return data.pivot_table(**kwargs)
+
+    return progress_udf_wrapper(foo, workers_queue, 1)()
+
+
+def parallelize_pivot_table(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
+    @doc(DOC, func='pivot_table')
+    def p_pivot_table(data, values=None, index=None, columns=None, aggfunc='mean', fill_value=None,
+                      margins=False, dropna=True, margins_name='All', observed=lib.no_default,
+                      sort=True, executor='processes'):
+        pivot_kwargs = dict(values=values, index=index, columns=columns, aggfunc=aggfunc,
+                            fill_value=fill_value, margins=margins, dropna=dropna,
+                            margins_name=margins_name, observed=observed, sort=sort)
+
+        if index is None:
+            keys = None
+        elif isinstance(index, (list, tuple)):
+            keys = list(index)
+        else:
+            keys = [index]
+
+        # We split the source rows into disjoint groups by the `index` keys, run
+        # pivot_table on every chunk and concatenate the results. This is exact for any
+        # aggfunc because the resulting row-groups never overlap between chunks.
+        # Fall back to plain pandas when that assumption does not hold:
+        #  - `margins` needs a grand total computed over ALL rows at once;
+        #  - `index` must be actual columns so we can group the source rows by them.
+        can_parallel = (
+            not margins
+            and keys is not None
+            and all(np.isscalar(k) and k in data.columns for k in keys)
+        )
+        if not can_parallel:
+            return data.pivot_table(**pivot_kwargs)
+
+        workers_queue = get_workers_queue()
+        split_size = get_split_size(n_cpu, split_factor)
+        grouped = data.groupby(keys, sort=False, observed=True)
+        group_frames = [g for _, g in grouped]
+        if not group_frames:
+            return data.pivot_table(**pivot_kwargs)
+        split_size = min(split_size, len(group_frames))
+        idx_split = np.array_split(np.arange(len(group_frames)), split_size)
+        tasks = (pd.concat([group_frames[j] for j in part]) for part in idx_split)
+
+        # fill_value / sort are applied once on the combined frame, not per chunk:
+        # a cross-chunk missing (index, column) cell is only introduced by the concat.
+        chunk_kwargs = dict(pivot_kwargs, fill_value=None, sort=False)
+        dill_kwargs = dill.dumps(chunk_kwargs)
+        result = progress_imap(partial(_do_pivot_table, dill_kwargs=dill_kwargs, workers_queue=workers_queue),
+                               tasks, workers_queue, n_cpu=n_cpu, total=split_size, disable=disable_pr_bar,
+                               show_vmem=show_vmem, executor=executor, desc='PIVOT_TABLE')
+        result = [r for r in result if r is not None and not r.empty]
+        if not result:
+            return data.pivot_table(**pivot_kwargs)
+        out = pd.concat(result, axis=0)
+        if sort:
+            out = out.sort_index(axis=0).sort_index(axis=1)
+        if fill_value is not None:
+            out = out.fillna(fill_value)
+        return out
+
+    return p_pivot_table
+
+
 def _np_pearson_corr(a, b=None):
     if b is None:
         return np.corrcoef(a, rowvar=False)
