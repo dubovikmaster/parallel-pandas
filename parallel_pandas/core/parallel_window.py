@@ -137,154 +137,79 @@ class ParallelRolling:
         return self._data_reduce(result, data, axis, offset)
 
     def do_parallel(self, name):
-        if name == 'mean':
+        # Operations that share a signature are grouped; the rest keep their own.
+        if name in ('mean', 'sum', 'min', 'max'):
             @doc(DOC, func=name)
-            def p_mean(data, *args, executor='threads', engine=None, engine_kwargs=None, **kwargs):
-                return self.parallelize_method(data, name, executor, *args, engine=engine, engine_kwargs=engine_kwargs,
-                                               **kwargs)
+            def p_func(data, *args, executor='threads', engine=None, engine_kwargs=None, **kwargs):
+                return self.parallelize_method(data, name, executor, *args, engine=engine,
+                                               engine_kwargs=engine_kwargs, **kwargs)
 
-            return p_mean
-
-        if name == 'median':
+        elif name == 'median':
             @doc(DOC, func=name)
-            def p_median(data, executor='threads', engine=None, engine_kwargs=None, **kwargs):
-                return self.parallelize_method(data, name, executor, engine=engine, engine_kwargs=engine_kwargs,
-                                               **kwargs)
+            def p_func(data, executor='threads', engine=None, engine_kwargs=None, **kwargs):
+                return self.parallelize_method(data, name, executor, engine=engine,
+                                               engine_kwargs=engine_kwargs, **kwargs)
 
-            return p_median
-
-        if name == 'sum':
+        elif name in ('std', 'var'):
             @doc(DOC, func=name)
-            def p_sum(data, *args, executor='threads', engine=None, engine_kwargs=None, **kwargs):
-                return self.parallelize_method(data, name, executor, *args, engine=engine, engine_kwargs=engine_kwargs,
-                                               **kwargs)
-
-            return p_sum
-
-        if name == 'min':
-            @doc(DOC, func=name)
-            def p_min(data, *args, executor='threads', engine=None, engine_kwargs=None, **kwargs):
-                return self.parallelize_method(data, name, executor, *args, engine=engine, engine_kwargs=engine_kwargs,
-                                               **kwargs)
-
-            return p_min
-
-        if name == 'max':
-            @doc(DOC, func=name)
-            def p_max(data, *args, executor='threads', engine=None, engine_kwargs=None, **kwargs):
-                return self.parallelize_method(data, name, executor, *args, engine=engine, engine_kwargs=engine_kwargs,
-                                               **kwargs)
-
-            return p_max
-
-        if name == 'std':
-            @doc(DOC, func=name)
-            def p_std(data, executor='threads', ddof=1, *args, engine=None, engine_kwargs=None, **kwargs):
+            def p_func(data, executor='threads', ddof=1, *args, engine=None, engine_kwargs=None, **kwargs):
                 return self.parallelize_method(data, name, executor, ddof=ddof, *args, engine=engine,
-                                               engine_kwargs=engine_kwargs,
-                                               **kwargs)
+                                               engine_kwargs=engine_kwargs, **kwargs)
 
-            return p_std
-
-        if name == 'var':
+        elif name == 'sem':
             @doc(DOC, func=name)
-            def p_var(data, executor='threads', ddof=1, *args, engine=None, engine_kwargs=None, **kwargs):
-                return self.parallelize_method(data, name, executor, ddof=ddof, *args, engine=engine,
-                                               engine_kwargs=engine_kwargs,
-                                               **kwargs)
-
-            return p_var
-
-        if name == 'sem':
-            @doc(DOC, func=name)
-            def p_sem(data, executor='threads', ddof=1, *args, **kwargs):
+            def p_func(data, executor='threads', ddof=1, *args, **kwargs):
                 return self.parallelize_method(data, name, executor, ddof=ddof, *args, **kwargs)
 
-            return p_sem
-
-        if name == 'skew':
+        elif name in ('skew', 'kurt'):
             @doc(DOC, func=name)
-            def p_skew(data, executor='threads', **kwargs):
+            def p_func(data, executor='threads', **kwargs):
                 return self.parallelize_method(data, name, executor, **kwargs)
 
-            return p_skew
-
-        if name == 'kurt':
+        elif name == 'rank':
             @doc(DOC, func=name)
-            def p_kurt(data, executor='threads', **kwargs):
-                return self.parallelize_method(data, name, executor, **kwargs)
-
-            return p_kurt
-
-        if name == 'rank':
-            @doc(DOC, func=name)
-            def p_rank(data, executor='processes', method='average', ascending=True, pct=False, **kwargs):
+            def p_func(data, executor='processes', method='average', ascending=True, pct=False, **kwargs):
                 return self.parallelize_method(data, name, executor, method=method, ascending=ascending, pct=pct,
                                                **kwargs)
 
-            return p_rank
-
-        if name == 'quantile':
+        elif name == 'quantile':
             @doc(DOC, func=name)
-            def p_quantile(data, quantile, executor='threads', interpolation="linear", **kwargs):
+            def p_func(data, quantile, executor='threads', interpolation="linear", **kwargs):
                 return self.parallelize_method(data, name, executor, quantile, interpolation=interpolation, **kwargs)
 
-            return p_quantile
-
-        if name == 'cov':
+        elif name == 'cov':
             @doc(DOC, func=name)
-            def p_cov(data, executor='processes', other=None, pairwise=None, ddof=1, numeric_only=False):
+            def p_func(data, executor='processes', other=None, pairwise=None, ddof=1, numeric_only=False):
                 return self.parallelize_method(data, name, executor, other=other, pairwise=pairwise, ddof=ddof,
                                                numeric_only=numeric_only)
 
-            return p_cov
-
-        if name == 'apply':
+        elif name == 'apply':
             @doc(DOC, func=name)
-            def p_apply(data, func, executor='processes', raw=False, engine=None, engine_kwargs=None, args=None,
-                        kwargs=None):
+            def p_func(data, func, executor='processes', raw=False, engine=None, engine_kwargs=None, args=None,
+                       kwargs=None):
                 return self.parallelize_method(data, name, executor, func, raw=raw, engine=engine,
                                                engine_kwargs=engine_kwargs, args=args, kwargs=kwargs)
 
-            return p_apply
-
-        if name in ['aggregate', 'agg']:
+        elif name in ('aggregate', 'agg'):
             @doc(DOC, func=name)
-            def p_aggregate(data, func, *args, executor='processes', **kwargs):
+            def p_func(data, func, *args, executor='processes', **kwargs):
                 return self.parallelize_method(data, name, executor, func, args=args, kwargs=kwargs)
 
-            return p_aggregate
+        else:
+            return None
+
+        p_func.__name__ = p_func.__qualname__ = f'p_{name}'
+        return p_func
 
 
 class ParallelWindow(ParallelRolling):
     def do_parallel(self, name):
-        if name == 'mean':
-            @doc(DOC, func=name)
-            def p_mean(data, executor='threads', **kwargs):
-                return self.parallelize_method(data, name, executor, **kwargs)
+        @doc(DOC, func=name)
+        def p_func(data, executor='threads', **kwargs):
+            return self.parallelize_method(data, name, executor, **kwargs)
 
-            return p_mean
-
-        if name == 'sum':
-            @doc(DOC, func=name)
-            def p_sum(data, executor='threads', **kwargs):
-                return self.parallelize_method(data, name, executor, **kwargs)
-
-            return p_sum
-
-        if name == 'std':
-            @doc(DOC, func=name)
-            def p_std(data, executor='threads', **kwargs):
-                return self.parallelize_method(data, name, executor, **kwargs)
-
-            return p_std
-
-        if name == 'var':
-            @doc(DOC, func=name)
-            def p_var(data, executor='threads', **kwargs):
-                return self.parallelize_method(data, name, executor, **kwargs)
-
-            return p_var
+        p_func.__name__ = p_func.__qualname__ = f'p_{name}'
+        return p_func
 
 
 class ParallelGroupbyMixin(ParallelRolling):
