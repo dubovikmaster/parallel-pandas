@@ -17,6 +17,15 @@ DOC = 'Parallel analogue of the {func} method\nSee pandas DataFrame docstring fo
       'information\nhttps://pandas.pydata.org/docs/reference/window.html'
 
 
+def _get_gb_grouper(data):
+    # `_grouper` on grouped-window objects only exists since pandas 2.2;
+    # older versions (2.0/2.1) expose it as the public `grouper` attribute.
+    grouper = getattr(data, '_grouper', None)
+    if grouper is None:
+        grouper = data.grouper
+    return grouper
+
+
 class ParallelRolling:
     def __init__(self, n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
         self.n_cpu = n_cpu if n_cpu else cpu_count()
@@ -82,6 +91,7 @@ class ParallelRolling:
     def _get_attributes(data):
         attributes = {attribute: getattr(data, attribute) for attribute in data._attributes}
         attributes.pop("_grouper", None)
+        attributes.pop("grouper", None)
         # `axis` is handled separately and was removed from window ctors in pandas 3.
         attributes.pop("axis", None)
         if attributes.get('win_type') == 'freq':
@@ -307,14 +317,15 @@ class ParallelGroupbyMixin(ParallelRolling):
         return progress_udf_wrapper(foo, workers_queue, 1)()
 
     def _get_split_data(self, data):
-        return data._grouper.get_iterator(data.obj)
+        return _get_gb_grouper(data).get_iterator(data.obj)
 
     def _get_total_tasks(self, data):
-        return data._grouper.ngroups
+        return _get_gb_grouper(data).ngroups
 
     def _data_reduce(self, result, data, axis, offset):
+        grouper = _get_gb_grouper(data)
         out = pd.concat(result)
-        out.rename_axis(data._grouper.names + [data._grouper.axis.name], inplace=True)
+        out.rename_axis(grouper.names + [grouper.axis.name], inplace=True)
         return out
 
 
