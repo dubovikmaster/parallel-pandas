@@ -18,11 +18,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - python: "3.9"
-            pandas: "1.5.3"
-            numpy: "<2"
           - python: "3.10"
-            pandas: "2.0.3"
+            pandas: "2.1.4"
             numpy: "<2"
           - python: "3.11"
             pandas: "2.2.3"

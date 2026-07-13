@@ -37,16 +37,26 @@ def _prepare_result(data):
     return result, mutated
 
 
+def _get_grouper(data):
+    # `_grouper` on the groupby object only exists since pandas 2.2;
+    # older versions expose it as the public `grouper` attribute.
+    grouper = getattr(data, '_grouper', None)
+    if grouper is None:
+        grouper = data.grouper
+    return grouper
+
+
 def _get_group_iterator(data, include_groups):
+    grouper = _get_grouper(data)
     if MAJOR_PANDAS_VERSION >= 3:
         # pandas 3 removed the `axis` argument from _get_splitter and the
         # `axis` attribute from the groupby object; only axis=0 exists.
         obj = data._selected_obj if include_groups else data._obj_with_exclusions
-        return iter(data._grouper._get_splitter(obj))
+        return iter(grouper._get_splitter(obj))
     if MAJOR_PANDAS_VERSION == 2 and MINOR_PANDAS_VERSION >= 2 and not include_groups:
-        return iter(data._grouper._get_splitter(data._obj_with_exclusions, data.axis))
+        return iter(grouper._get_splitter(data._obj_with_exclusions, data.axis))
     else:
-        return iter(data._grouper._get_splitter(data._selected_obj, data.axis))
+        return iter(grouper._get_splitter(data._selected_obj, data.axis))
 
 
 def parallelize_groupby_apply(n_cpu=None, disable_pr_bar=False):
