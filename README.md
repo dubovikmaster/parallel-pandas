@@ -50,6 +50,7 @@ When initializing parallel-pandas you can specify the following options:
 3. `show_vmem` - Shows a progress bar with available RAM (default `False`)
 4. `disable_pr_bar` - Disable the progress bar for parallel tasks (default `False`)
 5. `logger` - A `logging.Logger` the progress bar is redirected to instead of the terminal (default `None`). Optionally set the level with `logger_level` (default `logging.INFO`). To write the bar to an arbitrary file-like object instead, pass `pbar_file`.
+6. `reuse_pool` - Keep the worker pool warm and reuse it across calls instead of spawning a new one every time (default `True`). This removes the per-call process-spawn overhead, which makes a big difference when you call process-based methods (`p_apply`, `p_map`, `chunk_apply`, `p_pivot_table`, groupby `p_apply`, ...) repeatedly. Set it to `False` to restore per-call pool creation.
 
 For example
 
