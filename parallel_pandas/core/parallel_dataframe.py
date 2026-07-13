@@ -105,8 +105,25 @@ def _do_pivot_table(data, dill_kwargs, workers_queue):
     return progress_udf_wrapper(foo, workers_queue, 1)()
 
 
+PIVOT_TABLE_DOC = (
+    'Parallel analogue of the DataFrame.pivot_table method.\n\n'
+    'The source rows are split into disjoint groups by the ``index`` keys, '
+    'DataFrame.pivot_table is run on every chunk in a worker pool and the '
+    'partial tables are concatenated. The result is exact for any aggfunc.\n\n'
+    'Performance note: this only pays off for CPU-bound *callable* aggfuncs on '
+    'moderate-sized data. For the built-in aggfuncs (\'mean\', \'sum\', '
+    '\'count\', ...) plain DataFrame.pivot_table runs in optimized C and is '
+    'typically much faster than this parallel version, because splitting the '
+    'frame and shipping the chunks to worker processes costs more than the '
+    'aggregation itself. Reach for p_pivot_table when your aggfunc is an '
+    'expensive Python function; otherwise prefer DataFrame.pivot_table.\n\n'
+    'See the pandas DataFrame.pivot_table docstring for the parameters:\n'
+    'https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.pivot_table.html'
+)
+
+
 def parallelize_pivot_table(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
-    @doc(DOC, func='pivot_table')
+    @doc(PIVOT_TABLE_DOC)
     def p_pivot_table(data, values=None, index=None, columns=None, aggfunc='mean', fill_value=None,
                       margins=False, dropna=True, margins_name='All', observed=lib.no_default,
                       sort=True, executor='processes'):
