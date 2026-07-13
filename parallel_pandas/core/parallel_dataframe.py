@@ -5,7 +5,6 @@ from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from multiprocessing import cpu_count
 
 from functools import partial
-from multiprocessing import Manager
 import numpy as np
 import pandas as pd
 from pandas._libs import lib
@@ -23,6 +22,7 @@ import dill
 from ._numba import _do_parallel_corr
 from .progress_imap import progress_imap
 from .progress_imap import progress_udf_wrapper
+from .progress_imap import get_workers_queue
 from .tools import (
     get_pandas_version,
     parallel_rank,
@@ -45,7 +45,7 @@ def _do_apply(data, dill_func, workers_queue, axis, raw, result_type, args, kwar
 def parallelize_apply(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
     @doc(DOC, func='apply')
     def p_apply(data, func, executor='processes', axis=0, raw=False, result_type=None, args=(), **kwargs):
-        workers_queue = Manager().Queue()
+        workers_queue = get_workers_queue()
         split_size = get_split_size(n_cpu, split_factor)
         tasks = get_split_data(data, axis, split_size)
         dill_func = dill.dumps(func)
@@ -74,7 +74,7 @@ def _do_chunk_apply(data, dill_func, workers_queue, args, kwargs):
 def parallelize_chunk_apply(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
     def chunk_apply(data, func, executor='processes', axis=0, split_by_col=None,
                     concat_result=True, args=(), **kwargs):
-        workers_queue = Manager().Queue()
+        workers_queue = get_workers_queue()
         split_size = get_split_size(n_cpu, split_factor)
         if split_by_col:
             t = data[split_by_col].unique()
@@ -254,7 +254,7 @@ def _do_aggregate(data, func, workers_queue, dilled_func, axis, args, kwargs):
 def parallelize_aggregate(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
     @doc(DOC, func='aggregate')
     def p_aggregate(data, func, executor='threads', axis=0, args=(), **kwargs):
-        workers_queue = Manager().Queue()
+        workers_queue = get_workers_queue()
         split_size = get_split_size(n_cpu, split_factor)
         tasks = get_split_data(data, axis, split_size)
         dilled_func = False
@@ -285,7 +285,7 @@ def parallelize_replace(n_cpu=None, disable_pr_bar=False, show_vmem=False, split
     @doc(DOC, func='replace')
     def p_replace(data, to_replace=None, value=lib.no_default, limit=None,
                   regex: bool = False, method: str | lib.NoDefault = lib.no_default):
-        workers_queue = Manager().Queue()
+        workers_queue = get_workers_queue()
         split_size = get_split_size(n_cpu, split_factor)
         tasks = get_split_data(data, 1, split_size)
         result = progress_imap(partial(_do_replace, to_replace=to_replace, value=value, limit=limit, regex=regex,
@@ -307,7 +307,7 @@ def do_applymap(df, workers_queue, dill_func, na_action, kwargs):
 def parallelize_applymap(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
     @doc(DOC, func='applymap')
     def p_applymap(data, func, na_action=None, **kwargs):
-        workers_queue = Manager().Queue()
+        workers_queue = get_workers_queue()
         split_size = get_split_size(n_cpu, split_factor)
         tasks = get_split_data(data, 1, split_size)
         dill_func = dill.dumps(func)
@@ -329,7 +329,7 @@ def do_map(df, workers_queue, dill_func, na_action, kwargs):
 def parallelize_map(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
     @doc(DOC, func='map')
     def p_map(data, func, na_action=None, **kwargs):
-        workers_queue = Manager().Queue()
+        workers_queue = get_workers_queue()
         split_size = get_split_size(n_cpu, split_factor)
         tasks = get_split_data(data, 1, split_size)
         dill_func = dill.dumps(func)
@@ -363,7 +363,7 @@ def parallelize_describe(n_cpu=None, disable_pr_bar=False, show_vmem=False, spli
         if MAJOR_PANDAS_VERSION > 1:
             if datetime_is_numeric:
                 warnings.warn('datetime_is_numeric is deprecated since pandas 2.0.0')
-        workers_queue = Manager().Queue()
+        workers_queue = get_workers_queue()
         split_size = get_split_size(n_cpu, split_factor)
         tasks = get_split_data(data, 0, split_size)
         result = progress_imap(
@@ -390,7 +390,7 @@ def parallelize_pct_change(n_cpu=None, disable_pr_bar=False, show_vmem=False, sp
                      freq=None,
                      **kwargs, ):
         axis = kwargs.get('axis', 0)
-        workers_queue = Manager().Queue()
+        workers_queue = get_workers_queue()
         split_size = get_split_size(n_cpu, split_factor)
         tasks = get_split_data(data, axis, split_size)
         result = progress_imap(
@@ -422,7 +422,7 @@ def do_mad(df, workers_queue, axis, skipna, level):
 def parallelize_mad(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
     @doc(DOC, func='mad')
     def p_mad(data, axis=0, skipna=True, level=None):
-        workers_queue = Manager().Queue()
+        workers_queue = get_workers_queue()
         split_size = get_split_size(n_cpu, split_factor)
         tasks = get_split_data(data, axis, split_size)
         total = min(split_size, data.shape[1 - axis])
@@ -445,7 +445,7 @@ def do_idxmax(df, workers_queue, axis, skipna):
 def parallelize_idxmax(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
     @doc(DOC, func='idxmax')
     def p_idxmax(data, axis=0, skipna=True):
-        workers_queue = Manager().Queue()
+        workers_queue = get_workers_queue()
         split_size = get_split_size(n_cpu, split_factor)
         tasks = get_split_data(data, axis, split_size)
         total = min(split_size, data.shape[1 - axis])
@@ -468,7 +468,7 @@ def do_idxmin(df, workers_queue, axis, skipna):
 def parallelize_idxmin(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
     @doc(DOC, func='idxmin')
     def p_idxmin(data, axis=0, skipna=True):
-        workers_queue = Manager().Queue()
+        workers_queue = get_workers_queue()
         split_size = get_split_size(n_cpu, split_factor)
         tasks = get_split_data(data, axis, split_size)
         total = min(split_size, data.shape[1 - axis])
@@ -494,7 +494,7 @@ def parallelize_rank(n_cpu=None, disable_pr_bar=False, split_factor=1,
     @doc(DOC, func='rank')
     def p_rank(data, axis=0, method: str = "average", numeric_only=lib.no_default, na_option="keep", ascending=True,
                pct=False):
-        workers_queue = Manager().Queue()
+        workers_queue = get_workers_queue()
         split_size = get_split_size(n_cpu, split_factor)
         tasks = get_split_data(data, axis, split_size)
         total = min(split_size, data.shape[1 - axis])
@@ -519,7 +519,7 @@ def parallelize_quantile(n_cpu=None, disable_pr_bar=False, split_factor=1,
                          show_vmem=False):
     @doc(DOC, func='quantile')
     def p_quantile(data, q=0.5, axis=0, numeric_only: bool = True, interpolation: str = "linear"):
-        workers_queue = Manager().Queue()
+        workers_queue = get_workers_queue()
         split_size = get_split_size(n_cpu, split_factor)
         tasks = get_split_data(data, axis, split_size)
         total = min(split_size, data.shape[1 - axis])
@@ -546,7 +546,7 @@ def parallelize_mode(n_cpu=None, disable_pr_bar=False, split_factor=1,
                      show_vmem=False):
     @doc(DOC, func='mode')
     def p_mode(data, executor='processes', axis=0, numeric_only: bool = False, dropna=True):
-        workers_queue = Manager().Queue()
+        workers_queue = get_workers_queue()
         split_size = get_split_size(n_cpu, split_factor)
         tasks = get_split_data(data, axis, split_size)
         total = min(split_size, data.shape[1 - axis])
@@ -583,7 +583,7 @@ def parallelize_merge(n_cpu=None, disable_pr_bar=False, split_factor=1,
                 copy: bool = True,
                 indicator: bool = False,
                 validate: str | None = None, ):
-        workers_queue = Manager().Queue()
+        workers_queue = get_workers_queue()
         split_size = get_split_size(n_cpu, split_factor)
         tasks = get_split_data(data, 1, split_size)
         total = min(split_size, data.shape[0])
@@ -611,7 +611,7 @@ def parallelize_isin(n_cpu=None, disable_pr_bar=False, split_factor=1,
                      show_vmem=False):
     @doc(DOC, func='isin')
     def p_isin(data, values):
-        workers_queue = Manager().Queue()
+        workers_queue = get_workers_queue()
         split_size = get_split_size(n_cpu, split_factor)
         tasks = get_split_data(data, 1, split_size)
         total = min(split_size, data.shape[0])
@@ -655,7 +655,7 @@ class ParallelizeStatFunc:
         return progress_udf_wrapper(closure, workers_queue, 1)()
 
     def _parallel_stat_func(self, data, name, kwargs, axis=0, skipna=True, level=None, numeric_only=None):
-        workers_queue = Manager().Queue()
+        workers_queue = get_workers_queue()
         split_size = get_split_size(self.n_cpu, self.split_factor)
         tasks = get_split_data(data, axis, split_size)
         total = min(split_size, data.shape[1 - axis])
@@ -739,7 +739,7 @@ class ParallelizeStatFuncDdof:
 
     def _parallel_stat_func_ddof(self, data, name, kwargs, axis=0, skipna=True, level=None, ddof=1,
                                  numeric_only=None):
-        workers_queue = Manager().Queue()
+        workers_queue = get_workers_queue()
         split_size = get_split_size(self.n_cpu, self.split_factor)
         tasks = get_split_data(data, axis, split_size)
         total = min(split_size, data.shape[1 - axis])
@@ -804,7 +804,7 @@ class ParallelizeMinCountStatFunc:
 
     def _parallel_min_count_stat_func(self, data, name, kwargs, axis=0, skipna=True, level=None,
                                       numeric_only=None, min_count=0):
-        workers_queue = Manager().Queue()
+        workers_queue = get_workers_queue()
         split_size = get_split_size(self.n_cpu, self.split_factor)
         tasks = get_split_data(data, axis, split_size)
         total = min(split_size, data.shape[1 - axis])
@@ -868,7 +868,7 @@ class ParallelizeAccumFunc:
         return progress_udf_wrapper(closure, workers_queue, 1)()
 
     def _parallel_accum_func(self, data, name, args, kwargs, axis=0, skipna=True):
-        workers_queue = Manager().Queue()
+        workers_queue = get_workers_queue()
         split_size = get_split_size(self.n_cpu, self.split_factor)
         tasks = get_split_data(data, axis, split_size)
         total = min(split_size, data.shape[1 - axis])

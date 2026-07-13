@@ -1,5 +1,5 @@
+import atexit
 import time
-from functools import partial
 from itertools import count
 
 import multiprocessing as mp
@@ -7,10 +7,33 @@ from threading import Thread
 
 from tqdm.auto import tqdm
 
-from .tools import _wrapped_func
-
 from psutil import virtual_memory
 from psutil._common import bytes2human
+
+
+_MANAGER = None
+
+
+def _shutdown_manager():
+    global _MANAGER
+    if _MANAGER is not None:
+        _MANAGER.shutdown()
+        _MANAGER = None
+
+
+def get_workers_queue():
+    """Return a progress queue from a shared, lazily-created Manager.
+
+    Spawning a ``multiprocessing.Manager`` starts a server process, which is
+    costly. parallel-pandas runs many small operations in a row, so instead of
+    creating a Manager on every call we create it once and hand out fresh
+    queues from it.
+    """
+    global _MANAGER
+    if _MANAGER is None:
+        _MANAGER = mp.Manager()
+        atexit.register(_shutdown_manager)
+    return _MANAGER.Queue()
 
 
 class ProgressBar(tqdm):
@@ -104,26 +127,18 @@ def _do_parallel(func, tasks, initializer, initargs, n_cpu, total, disable, show
     else:
         exc_pool = mp.Pool(n_cpu, initializer=initializer, initargs=initargs)
     with exc_pool as p:
-        result = list()
-        iter_result = p.imap(func, tasks)
-        while 1:
-            try:
-                result.append(next(iter_result))
-            except StopIteration:
-                break
+        result = list(p.imap(func, tasks))
     q.put((None, None))
     thread_.join()
     return result
 
 
 def progress_imap(func, tasks, q, executor='threads', initializer=None, initargs=(), n_cpu=None, total=None,
-                  disable=False, process_timeout=None, show_vmem=False, desc=''
+                  disable=False, show_vmem=False, desc=''
                   ):
     if executor not in ['threads', 'processes']:
         raise ValueError('Invalid executor value specified. Must be one of the values: "threads", "processes"')
     try:
-        if process_timeout:
-            func = partial(_wrapped_func, func, process_timeout, True)
         result = _do_parallel(func, tasks, initializer, initargs, n_cpu, total, disable, show_vmem, q, executor, desc)
     except (KeyboardInterrupt, Exception):
         q.put((None, None))

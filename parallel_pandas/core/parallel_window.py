@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import partial
-from multiprocessing import cpu_count, Manager
+from multiprocessing import cpu_count
 
 import numpy as np
 import pandas as pd
@@ -9,6 +9,7 @@ from pandas.util._decorators import doc
 import dill
 from .progress_imap import progress_imap
 from .progress_imap import progress_udf_wrapper
+from .progress_imap import get_workers_queue
 from .tools import get_split_data
 from .tools import get_obj_axis
 
@@ -89,7 +90,7 @@ class ParallelRolling:
 
     def parallelize_method(self, data, name, executor, *args, **kwargs):
         attributes = self._get_attributes(data)
-        workers_queue = Manager().Queue()
+        workers_queue = get_workers_queue()
         serialized_flag = False
         if name in ['apply', 'aggregate', 'agg']:
             # if func is callable need to serialize it

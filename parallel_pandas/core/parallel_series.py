@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from functools import partial
-from multiprocessing import Manager
 
 import pandas as pd
 from pandas.util._decorators import doc
@@ -10,6 +9,7 @@ import dill
 
 from .progress_imap import progress_imap
 from .progress_imap import progress_udf_wrapper
+from .progress_imap import get_workers_queue
 from .tools import (
     get_split_data,
     get_split_size,
@@ -30,7 +30,7 @@ def _do_apply(data, dill_func, workers_queue, convert_dtype, args, kwargs):
 def series_parallelize_apply(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
     @doc(DOC, func='apply')
     def p_apply(data, func, executor='processes', convert_dtype=True, args=(), **kwargs):
-        workers_queue = Manager().Queue()
+        workers_queue = get_workers_queue()
         split_size = get_split_size(n_cpu, split_factor)
         tasks = get_split_data(data, 1, split_size)
         dill_func = dill.dumps(func)
@@ -54,7 +54,7 @@ def _do_map(data, dill_arg, workers_queue, na_action):
 def series_parallelize_map(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
     @doc(DOC, func='map')
     def p_map(data, arg, executor='threads', na_action=None):
-        workers_queue = Manager().Queue()
+        workers_queue = get_workers_queue()
         split_size = get_split_size(n_cpu, split_factor)
         tasks = get_split_data(data, 1, split_size)
         dill_arg = dill.dumps(arg)
