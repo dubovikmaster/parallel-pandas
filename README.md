@@ -187,6 +187,17 @@ serial `transform` on an 8-core machine. As with the other process methods,
 reach for it when the UDF is an expensive Python function; for the built-in
 aggregations (`'mean'`, `'sum'`, ...) the native `transform` already runs in C.
 
+`p_agg` is the reducing counterpart and mirrors `groupby.agg`, so callable,
+string, list, dict and named aggregations all work (the aggregation spec and
+resulting column layout are handled by pandas):
+
+```python
+gb = df.groupby('user_id')
+gb.p_agg(lambda s: s.max() - s.min())          # callable
+gb.p_agg({'x': 'mean', 'y': my_udf})           # dict spec
+gb.p_agg(rng=('x', my_udf), total=('y', 'sum'))  # named aggregation
+```
+
 ## API
 
 ### Parallel counterparts for pandas Series methods
@@ -203,6 +214,7 @@ aggregations (`'mean'`, `'sum'`, ...) the native `transform` already runs in C.
 |--------------------------|----------------------------|-------------------------|
 | pd.SeriesGroupBy.apply() | pd.SeriesGroupBy.p_apply() | threads / processes     |
 | pd.SeriesGroupBy.transform() | pd.SeriesGroupBy.p_transform() | threads / processes |
+| pd.SeriesGroupBy.agg() | pd.SeriesGroupBy.p_agg() | threads / processes |
 
 ### Parallel counterparts for pandas Dataframe methods
 
@@ -244,6 +256,7 @@ aggregations (`'mean'`, `'sum'`, ...) the native `transform` already runs in C.
 |--------------------------|----------------------------|----------------------|
 | DataFrameGroupBy.apply() | DataFrameGroupBy.p_apply() | threads / processes  |
 | DataFrameGroupBy.transform() | DataFrameGroupBy.p_transform() | threads / processes |
+| DataFrameGroupBy.agg() | DataFrameGroupBy.p_agg() | threads / processes |
 
 ### Parallel counterparts for pandas window methods
 

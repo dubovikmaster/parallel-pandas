@@ -16,6 +16,7 @@ from .core import ParallelizeStatFunc
 from .core import ParallelizeStatFuncDdof
 from .core import parallelize_groupby_apply
 from .core import parallelize_groupby_transform
+from .core import parallelize_groupby_agg
 from .core import parallelize_applymap
 from .core import parallelize_describe
 from .core import parallelize_nunique
@@ -253,4 +254,9 @@ class ParallelPandas:
         pd.core.groupby.DataFrameGroupBy.p_transform = parallelize_groupby_transform(
             n_cpu=n_cpu, disable_pr_bar=disable_pr_bar, show_vmem=show_vmem, split_factor=split_factor)
         pd.core.groupby.SeriesGroupBy.p_transform = parallelize_groupby_transform(
+            n_cpu=n_cpu, disable_pr_bar=disable_pr_bar, show_vmem=show_vmem, split_factor=split_factor)
+
+        pd.core.groupby.DataFrameGroupBy.p_agg = parallelize_groupby_agg(
+            n_cpu=n_cpu, disable_pr_bar=disable_pr_bar, show_vmem=show_vmem, split_factor=split_factor)
+        pd.core.groupby.SeriesGroupBy.p_agg = parallelize_groupby_agg(
             n_cpu=n_cpu, disable_pr_bar=disable_pr_bar, show_vmem=show_vmem, split_factor=split_factor)

@@ -182,3 +182,76 @@ def parallelize_groupby_transform(n_cpu=None, disable_pr_bar=False, show_vmem=Fa
         return _assemble_transform(obj, positions, pieces)
 
     return p_transform
+
+
+def _do_group_agg(task, dill_func, dill_kwargs, workers_queue, args):
+    sub, codes = task
+    func = dill.loads(dill_func)
+    kwargs = dill.loads(dill_kwargs)
+
+    def foo():
+        # Aggregate the chunk grouped by the original integer codes. Every group
+        # lives entirely in one chunk, so the partial results just need to be
+        # concatenated; pandas owns the whole aggregation spec (callable, string,
+        # list, dict, named aggregation) and the resulting column layout.
+        g = sub.groupby(codes, sort=True)
+        if func is None:
+            return g.aggregate(*args, **kwargs)
+        return g.aggregate(func, *args, **kwargs)
+
+    return progress_udf_wrapper(foo, workers_queue, 1)()
+
+
+def parallelize_groupby_agg(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=None):
+    @doc(DOC, func='aggregate')
+    def p_agg(data, func=None, executor='processes', args=(), **kwargs):
+        def _native():
+            if func is None:
+                return data.aggregate(*args, **kwargs)
+            return data.aggregate(func, *args, **kwargs)
+
+        ngroups = data.ngroups
+        if ngroups == 0:
+            return _native()
+
+        obj = data._obj_with_exclusions
+        ids = data.ngroup().to_numpy()
+        n_chunks = min(get_split_size(n_cpu, split_factor), ngroups)
+        chunk_of_row = _chunk_of_row(ids, ngroups, n_chunks)
+
+        masks = [m for m in (chunk_of_row == c for c in range(n_chunks)) if m.any()]
+        if not masks:
+            return _native()
+
+        tasks = ((obj.iloc[m], ids[m].astype(np.int64)) for m in masks)
+
+        workers_queue = get_workers_queue()
+        dill_func = dill.dumps(func, recurse=True)
+        dill_kwargs = dill.dumps(kwargs, recurse=True)
+        if isinstance(func, str):
+            desc = func.upper()
+        elif callable(func):
+            desc = getattr(func, '__name__', 'AGG').upper()
+        else:
+            desc = 'AGG'
+        pieces = progress_imap(
+            partial(_do_group_agg, dill_func=dill_func, dill_kwargs=dill_kwargs,
+                    workers_queue=workers_queue, args=args),
+            tasks, workers_queue, total=len(masks), n_cpu=n_cpu, disable=disable_pr_bar,
+            show_vmem=show_vmem, executor=executor, desc=desc
+        )
+
+        combined = pd.concat(pieces, axis=0)
+        result_index = _get_grouper(data).result_index
+        # Guard for exotic groupings where the per-row codes don't cover every
+        # group (e.g. dropna=False with NaN keys): fall back to native aggregate.
+        if len(combined) != len(result_index):
+            return _native()
+
+        combined = combined.sort_index(kind='stable')
+        combined.index = result_index
+        if not getattr(data, 'as_index', True):
+            combined = combined.reset_index()
+        return combined
+
+    return p_agg
