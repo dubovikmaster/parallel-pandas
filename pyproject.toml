@@ -4,7 +4,7 @@ build-backend = "flit_core.buildapi"
 
 [project]
 name = "parallel-pandas"
-version = "0.7"
+version = "0.8"
 description = "Parallel processing on pandas with progress bars"
 readme = "README.md"
 license = { file = "LICENSE" }
