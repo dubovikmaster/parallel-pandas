@@ -5,6 +5,7 @@ import pandas as pd
 from .core.tools import get_pandas_version
 from .core.progress_imap import TqdmToLogger, set_progress_bar_file, set_reuse_pool
 from .core.accessor import register_parallel_accessor
+from .core.parallel_str_dt import set_parallel_config
 
 from .core import series_parallelize_apply
 from .core import series_parallelize_map
@@ -69,6 +70,10 @@ class ParallelPandas:
 
         # Expose the parallel methods under the ``.parallel`` accessor as well.
         register_parallel_accessor()
+
+        # Share the chunking/pool settings with the ``.parallel.str``/``.dt`` proxies.
+        set_parallel_config(n_cpu=n_cpu, split_factor=split_factor,
+                            disable_pr_bar=disable_pr_bar, show_vmem=show_vmem)
 
         # Route the progress bars: an explicit file-like wins, otherwise a logging.Logger
         # is wrapped so the bars are emitted as log records, otherwise the tqdm default.

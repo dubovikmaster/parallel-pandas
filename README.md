@@ -53,6 +53,35 @@ df.parallel.apply(my_func, axis=1)                # same as df.p_apply(my_func, 
 The accessor simply forwards `df.parallel.<name>()` to `df.p_<name>()`, so it
 automatically exposes whatever `ParallelPandas.initialize` registered.
 
+### Parallel `.str` and `.dt`
+
+On a Series the `.parallel` namespace also exposes the string and datetime
+accessors, so element-wise text/date preprocessing runs across a worker pool.
+The API mirrors pandas exactly — methods return a callable, accessor
+*properties* (`dt.year`, `dt.month`, ...) are evaluated eagerly:
+
+```python
+s.parallel.str.lower()
+s.parallel.str.extract(r'(\d+)-(\w+)')      # returns a DataFrame, like pandas
+s.parallel.str.replace('foo', 'bar', regex=False)
+
+s.parallel.dt.year                          # property -> Series
+s.parallel.dt.floor('D')
+s.parallel.dt.strftime('%Y-%m-%d')
+```
+
+Each op is element-wise, so the Series is split into row-chunks, the real pandas
+accessor runs on every chunk and the results are concatenated — the output is
+identical to the serial version.
+
+When it pays off: reach for it on **CPU-heavy per-element** ops (regex
+`extract`/`replace`, `strftime`, custom-format parsing). The built-in light ops
+(`str.upper`, `str.contains`, `dt.year`, ...) already run in vectorized C, and
+shipping millions of Python strings to worker processes costs more than the op
+itself, so the serial version is faster there. On a 5M-row string Series
+`str.extract` with a regex is ~3.5x faster; `str.upper` is slower. Series
+shorter than the worker count fall back to the serial call automatically.
+
 ## Usage
 
 Under the hood, **parallel-pandas** works very simply. The Dataframe or Series is split into chunks along the first or second axis. Then these chunks are passed to a pool of processes or threads where the desired method is executed on each part. At the end, the parts are concatenated to get the final result.

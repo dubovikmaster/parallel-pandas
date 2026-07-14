@@ -9,6 +9,8 @@ import warnings
 
 import pandas as pd
 
+from .parallel_str_dt import ParallelStrDt
+
 
 class ParallelAccessor:
     """``.parallel`` namespace dispatching to the ``p_*`` methods.
@@ -18,6 +20,8 @@ class ParallelAccessor:
     >>> df.parallel.mean()                 # -> df.p_mean()
     >>> df.parallel.apply(func, axis=1)     # -> df.p_apply(func, axis=1)
     >>> df.parallel.chunk_apply(func)       # -> df.chunk_apply(func)
+    >>> s.parallel.str.lower()              # parallel Series.str.lower()
+    >>> s.parallel.dt.year                  # parallel Series.dt.year
     """
 
     # Methods that intentionally keep their own name (no ``p_`` prefix).
@@ -25,6 +29,20 @@ class ParallelAccessor:
 
     def __init__(self, pandas_obj):
         self._obj = pandas_obj
+
+    @property
+    def str(self):
+        """Parallel ``Series.str`` accessor (Series only)."""
+        if not isinstance(self._obj, pd.Series):
+            raise AttributeError("'str' accessor is only available on a Series")
+        return ParallelStrDt(self._obj, 'str')
+
+    @property
+    def dt(self):
+        """Parallel ``Series.dt`` accessor (Series only)."""
+        if not isinstance(self._obj, pd.Series):
+            raise AttributeError("'dt' accessor is only available on a Series")
+        return ParallelStrDt(self._obj, 'dt')
 
     def __getattr__(self, name):
         # Guard against recursion / dunder lookups before ``_obj`` is set.
@@ -43,6 +61,8 @@ class ParallelAccessor:
     def __dir__(self):
         names = [attr[2:] for attr in dir(type(self._obj)) if attr.startswith('p_')]
         names += list(self._ALIASES)
+        if isinstance(self._obj, pd.Series):
+            names += ['str', 'dt']
         return sorted(set(names))
 
 
