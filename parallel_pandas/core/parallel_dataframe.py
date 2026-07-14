@@ -28,6 +28,7 @@ from .tools import (
     parallel_rank,
     get_split_data,
     get_split_size,
+    resolve_split_size,
 )
 
 DOC = 'Parallel analogue of the DataFrame.{func} method\nSee pandas DataFrame docstring for more ' \
@@ -42,11 +43,11 @@ def _do_apply(data, dill_func, workers_queue, axis, raw, result_type, args, kwar
                       result_type=result_type, args=args, **kwargs)
 
 
-def parallelize_apply(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
+def parallelize_apply(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=None):
     @doc(DOC, func='apply')
     def p_apply(data, func, executor='processes', axis=0, raw=False, result_type=None, args=(), **kwargs):
         workers_queue = get_workers_queue()
-        split_size = get_split_size(n_cpu, split_factor)
+        split_size = resolve_split_size(data, axis, n_cpu, split_factor)
         tasks = get_split_data(data, axis, split_size)
         dill_func = dill.dumps(func, recurse=True)
         result = progress_imap(partial(_do_apply, axis=axis, raw=raw, result_type=result_type, dill_func=dill_func,
@@ -71,11 +72,11 @@ def _do_chunk_apply(data, dill_func, workers_queue, args, kwargs):
     return progress_udf_wrapper(foo, workers_queue, 1)()
 
 
-def parallelize_chunk_apply(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
+def parallelize_chunk_apply(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=None):
     def chunk_apply(data, func, executor='processes', axis=0, split_by_col=None,
                     concat_result=True, args=(), **kwargs):
         workers_queue = get_workers_queue()
-        split_size = get_split_size(n_cpu, split_factor)
+        split_size = resolve_split_size(data, 1 - axis, n_cpu, split_factor)
         if split_by_col:
             t = data[split_by_col].unique()
             idx_split = np.array_split(t, min(split_size, len(t)))
@@ -390,11 +391,11 @@ def do_applymap(df, workers_queue, dill_func, na_action, kwargs):
     return df.applymap(progress_udf_wrapper(func, workers_queue, df.size), na_action=na_action, **kwargs)
 
 
-def parallelize_applymap(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
+def parallelize_applymap(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=None):
     @doc(DOC, func='applymap')
     def p_applymap(data, func, na_action=None, **kwargs):
         workers_queue = get_workers_queue()
-        split_size = get_split_size(n_cpu, split_factor)
+        split_size = resolve_split_size(data, 1, n_cpu, split_factor)
         tasks = get_split_data(data, 1, split_size)
         dill_func = dill.dumps(func, recurse=True)
         result = progress_imap(
@@ -412,11 +413,11 @@ def do_map(df, workers_queue, dill_func, na_action, kwargs):
     return df.map(progress_udf_wrapper(func, workers_queue, df.size), na_action=na_action, **kwargs)
 
 
-def parallelize_map(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
+def parallelize_map(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=None):
     @doc(DOC, func='map')
     def p_map(data, func, na_action=None, **kwargs):
         workers_queue = get_workers_queue()
-        split_size = get_split_size(n_cpu, split_factor)
+        split_size = resolve_split_size(data, 1, n_cpu, split_factor)
         tasks = get_split_data(data, 1, split_size)
         dill_func = dill.dumps(func, recurse=True)
         result = progress_imap(

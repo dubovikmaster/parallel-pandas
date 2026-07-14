@@ -12,7 +12,7 @@ from .progress_imap import progress_udf_wrapper
 from .progress_imap import get_workers_queue
 from .tools import (
     get_split_data,
-    get_split_size,
+    resolve_split_size,
 )
 
 DOC = 'Parallel analogue of the pd.Series.{func} method\nSee pandas Series docstring for more ' \
@@ -27,11 +27,11 @@ def _do_apply(data, dill_func, workers_queue, convert_dtype, args, kwargs):
         return data.astype(object).apply(progress_udf_wrapper(func, workers_queue, data.shape[0]), args=args, **kwargs)
 
 
-def series_parallelize_apply(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
+def series_parallelize_apply(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=None):
     @doc(DOC, func='apply')
     def p_apply(data, func, executor='processes', convert_dtype=True, args=(), **kwargs):
         workers_queue = get_workers_queue()
-        split_size = get_split_size(n_cpu, split_factor)
+        split_size = resolve_split_size(data, 1, n_cpu, split_factor)
         tasks = get_split_data(data, 1, split_size)
         dill_func = dill.dumps(func, recurse=True)
         result = progress_imap(partial(_do_apply, convert_dtype=convert_dtype, dill_func=dill_func,
@@ -51,11 +51,11 @@ def _do_map(data, dill_arg, workers_queue, na_action):
     return progress_udf_wrapper(foo, workers_queue, 1)()
 
 
-def series_parallelize_map(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1):
+def series_parallelize_map(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=None):
     @doc(DOC, func='map')
     def p_map(data, arg, executor='threads', na_action=None):
         workers_queue = get_workers_queue()
-        split_size = get_split_size(n_cpu, split_factor)
+        split_size = resolve_split_size(data, 1, n_cpu, split_factor)
         tasks = get_split_data(data, 1, split_size)
         dill_arg = dill.dumps(arg, recurse=True)
         result = progress_imap(partial(_do_map, dill_arg=dill_arg,

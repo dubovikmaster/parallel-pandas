@@ -54,8 +54,13 @@ register_parallel_accessor()
 
 class ParallelPandas:
     @staticmethod
-    def initialize(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=1,
+    def initialize(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=None,
                    logger=None, logger_level=logging.INFO, pbar_file=None, reuse_pool=True):
+        # split_factor controls how the data is chunked for the process-transport
+        # methods (p_apply/p_map/p_applymap/chunk_apply). None (default) auto-picks
+        # the chunk count from the input byte size (~8 MB per chunk); an explicit
+        # integer keeps the classic n_cpu * split_factor number of chunks.
+
         # Keep worker pools warm across calls (removes the per-call process-spawn
         # overhead). Set reuse_pool=False to restore per-call pool creation.
         set_reuse_pool(reuse_pool)
@@ -143,12 +148,12 @@ class ParallelPandas:
                                                      split_factor=split_factor).do_parallel('cumsum')
         if PD_VERSION < 21:
             pd.DataFrame.p_applymap = parallelize_applymap(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
-                                                           show_vmem=show_vmem)
+                                                           show_vmem=show_vmem, split_factor=split_factor)
         else:
             pd.DataFrame.p_map = parallelize_map(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
-                                                      show_vmem=show_vmem)
+                                                      show_vmem=show_vmem, split_factor=split_factor)
             pd.DataFrame.p_applymap = parallelize_applymap(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
-                                                           show_vmem=show_vmem)
+                                                           show_vmem=show_vmem, split_factor=split_factor)
         pd.DataFrame.p_describe = parallelize_describe(n_cpu=n_cpu, disable_pr_bar=disable_pr_bar,
                                                        show_vmem=show_vmem,
                                                        split_factor=split_factor)
