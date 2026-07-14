@@ -60,7 +60,7 @@ Under the hood, **parallel-pandas** works very simply. The Dataframe or Series i
 
 When initializing parallel-pandas you can specify the following options:
 1. `n_cpu` - the number of cores of your CPU that you want to use (default `None` - use all cores of CPU)
-2. `split_factor` - Affects the number of chunks into which the DataFrame/Series is split according to the formula `chunks_number = split_factor*n_cpu` (default 1).
+2. `split_factor` - Affects the number of chunks into which the DataFrame/Series is split according to the formula `chunks_number = split_factor*n_cpu`. Default is `None`, which enables **automatic chunking**: for the process-transport methods (`p_apply`, `p_map`, `p_applymap`, `chunk_apply`) the chunk count is picked from the input's byte size (aiming for ~8&nbsp;MB per chunk, bounded between `n_cpu` and `64*n_cpu` chunks). This lets the data transfer to workers overlap with computation and noticeably speeds up large frames (e.g. ~1.9&nbsp;GB frame: ~1.9x in local benchmarks). Pass an explicit integer (e.g. `split_factor=4`) to force the classic `split_factor*n_cpu` number of chunks instead.
 3. `show_vmem` - Shows a progress bar with available RAM (default `False`)
 4. `disable_pr_bar` - Disable the progress bar for parallel tasks (default `False`)
 5. `logger` - A `logging.Logger` the progress bar is redirected to instead of the terminal (default `None`). Optionally set the level with `logger_level` (default `logging.INFO`). To write the bar to an arbitrary file-like object instead, pass `pbar_file`.

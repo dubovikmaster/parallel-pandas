@@ -11,6 +11,7 @@ from .progress_imap import progress_imap
 from .progress_imap import progress_udf_wrapper
 from .progress_imap import get_workers_queue
 from .tools import get_split_data
+from .tools import get_split_size
 from .tools import get_obj_axis
 
 DOC = 'Parallel analogue of the {func} method\nSee pandas DataFrame docstring for more ' \
@@ -67,13 +68,13 @@ class ParallelRolling:
 
     def _get_split_data(self, data):
         axis, offset = self._get_axis_and_offset(data)
-        return get_split_data(data.obj, axis, self.n_cpu * self.split_factor, offset=offset)
+        return get_split_data(data.obj, axis, get_split_size(self.n_cpu, self.split_factor), offset=offset)
 
     def _get_total_tasks(self, data):
         axis = get_obj_axis(data)
         if isinstance(data.obj, pd.Series):
             axis = 1
-        return min(self.n_cpu * self.split_factor, data.obj.shape[1 - axis])
+        return min(get_split_size(self.n_cpu, self.split_factor), data.obj.shape[1 - axis])
 
     def _data_reduce(self, result, data, axis, offset):
         if offset:

@@ -61,8 +61,53 @@ def get_split_size(n_cpu, split_factor):
     if n_cpu is None:
         n_cpu = cpu_count()
     if split_factor is None:
-        split_factor = 4
+        split_factor = 1
     return n_cpu * split_factor
+
+
+# Target payload per chunk for process-based methods. Derived from a chunk-size
+# sweep across data shapes and UDF weights: throughput is stable around
+# 8-16 MB/chunk, because the fixed per-chunk pickle/pipe cost is amortised while
+# transfer still overlaps compute. See the auto-chunking PR for the measurements.
+_TARGET_CHUNK_BYTES = 8 * 1024 * 1024
+# Never create more than this many chunks per CPU, to keep per-task overhead
+# bounded on very large frames (a huge frame lands near ~20 MB/chunk instead).
+_MAX_CHUNKS_PER_CPU = 64
+
+
+def _approx_nbytes(data):
+    """Cheap dtype-based byte estimate for a Series/DataFrame (deep=False)."""
+    usage = data.memory_usage(index=False, deep=False)
+    try:
+        return int(usage.sum())  # DataFrame -> per-column Series
+    except AttributeError:
+        return int(usage)        # Series -> scalar
+
+
+def auto_split_size(data, axis, n_cpu):
+    """Pick the number of chunks so each is ~``_TARGET_CHUNK_BYTES`` of data.
+
+    Bounded below by ``n_cpu`` (keep every worker busy) and above by
+    ``_MAX_CHUNKS_PER_CPU * n_cpu`` and by the length of the split dimension.
+    """
+    if n_cpu is None:
+        n_cpu = cpu_count()
+    total_bytes = _approx_nbytes(data)
+    desired = max(1, -(-total_bytes // _TARGET_CHUNK_BYTES))  # ceil division
+    n_chunks = min(max(desired, n_cpu), _MAX_CHUNKS_PER_CPU * n_cpu)
+    split_dim = data.shape[1 - axis] if getattr(data, 'ndim', 1) > 1 else data.shape[0]
+    return max(1, min(n_chunks, split_dim))
+
+
+def resolve_split_size(data, axis, n_cpu, split_factor):
+    """Chunk count for the process-transport methods.
+
+    ``split_factor is None`` triggers the byte-size heuristic; an explicit factor
+    keeps the classic ``n_cpu * split_factor`` behaviour.
+    """
+    if split_factor is None:
+        return auto_split_size(data, axis, n_cpu)
+    return get_split_size(n_cpu, split_factor)
 
 
 def iterate_by_df(df, idx, axis, offset):
