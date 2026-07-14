@@ -1,5 +1,8 @@
 from functools import partial
 
+import numpy as np
+import pandas as pd
+
 from .progress_imap import progress_imap
 from .progress_imap import get_workers_queue
 from pandas.core.groupby.ops import _is_indexed_like
@@ -10,6 +13,7 @@ import dill
 from .progress_imap import progress_udf_wrapper
 from .tools import (
     get_pandas_version,
+    get_split_size,
 )
 
 DOC = 'Parallel analogue of the GroupBy.{func} method\nSee pandas GroupBy docstring for more ' \
@@ -87,3 +91,94 @@ def parallelize_groupby_apply(n_cpu=None, disable_pr_bar=False):
         return data._wrap_applied_output(data._selected_obj, result, not_indexed_same=mutated)
 
     return p_apply
+
+
+def _do_group_transform(task, dill_func, workers_queue, args, kwargs):
+    sub, codes = task
+    func = dill.loads(dill_func)
+
+    def foo():
+        # Re-group the chunk by the original (integer) group codes and let pandas
+        # run the real transform: this reproduces groupby.transform semantics
+        # exactly (column fast-path, broadcasting, string ops, ...) because every
+        # group lives entirely inside a single chunk and transform is independent
+        # across groups.
+        return sub.groupby(codes, sort=False).transform(func, *args, **kwargs)
+
+    return progress_udf_wrapper(foo, workers_queue, 1)()
+
+
+def _chunk_of_row(ids, ngroups, n_chunks):
+    """Assign every row to a chunk via its group code, keeping groups intact.
+
+    ``ids`` are the per-row group codes (as returned by ``GroupBy.ngroup``);
+    rows with a missing key have code ``-1`` / ``NaN`` and are assigned ``-1``
+    (excluded from every chunk, so they stay NaN in the result, matching pandas).
+    """
+    ids = np.asarray(ids)
+    valid = np.isfinite(ids) & (ids >= 0)
+    chunk = np.full(ids.shape[0], -1, dtype=np.int64)
+    gid = ids[valid].astype(np.int64)
+    # Contiguous ranges of group ids map to the same chunk (like np.array_split).
+    chunk[valid] = gid * n_chunks // ngroups
+    return chunk
+
+
+def _assemble_transform(obj, positions, pieces):
+    """Scatter the per-chunk transform results back into original row order.
+
+    Uses integer positions (not index labels) so it is correct even when the
+    original index has duplicate labels.
+    """
+    combined = pd.concat(pieces, axis=0)
+    pos = np.concatenate(positions) if positions else np.array([], dtype=np.int64)
+    n = len(obj)
+    fully_covered = len(pos) == n
+
+    if isinstance(combined, pd.Series):
+        if fully_covered:
+            out = pd.Series(index=obj.index, name=combined.name, dtype=combined.dtype)
+        else:
+            out = pd.Series(np.nan, index=obj.index, name=combined.name)
+        out.iloc[pos] = combined.to_numpy()
+        return out
+
+    out = pd.DataFrame(np.nan, index=obj.index, columns=combined.columns)
+    out.iloc[pos, :] = combined.to_numpy()
+    if fully_covered:
+        out = out.astype(combined.dtypes.to_dict())
+    return out
+
+
+def parallelize_groupby_transform(n_cpu=None, disable_pr_bar=False, show_vmem=False, split_factor=None):
+    @doc(DOC, func='transform')
+    def p_transform(data, func, executor='processes', args=(), **kwargs):
+        obj = data._obj_with_exclusions
+        ngroups = data.ngroups
+        if ngroups == 0:
+            return data.transform(func, *args, **kwargs)
+
+        ids = data.ngroup().to_numpy()
+        n_chunks = min(get_split_size(n_cpu, split_factor), ngroups)
+        chunk_of_row = _chunk_of_row(ids, ngroups, n_chunks)
+
+        masks = [chunk_of_row == c for c in range(n_chunks)]
+        masks = [m for m in masks if m.any()]
+        if not masks:
+            return data.transform(func, *args, **kwargs)
+
+        positions = [np.where(m)[0] for m in masks]
+        tasks = ((obj.iloc[m], ids[m]) for m in masks)
+
+        workers_queue = get_workers_queue()
+        dill_func = dill.dumps(func, recurse=True)
+        desc = (func.upper() if isinstance(func, str) else func.__name__.upper())
+        pieces = progress_imap(
+            partial(_do_group_transform, dill_func=dill_func, workers_queue=workers_queue,
+                    args=args, kwargs=kwargs),
+            tasks, workers_queue, total=len(masks), n_cpu=n_cpu, disable=disable_pr_bar,
+            show_vmem=show_vmem, executor=executor, desc=desc
+        )
+        return _assemble_transform(obj, positions, pieces)
+
+    return p_transform

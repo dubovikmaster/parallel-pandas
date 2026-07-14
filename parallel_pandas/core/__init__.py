@@ -1,6 +1,7 @@
 from .parallel_series import series_parallelize_apply
 from .parallel_series import series_parallelize_map
 from .parallel_groupby import parallelize_groupby_apply
+from .parallel_groupby import parallelize_groupby_transform
 from .parallel_dataframe import parallelize_apply
 from .parallel_dataframe import parallelize_replace
 from .parallel_dataframe import parallelize_applymap
